@@ -1,0 +1,183 @@
+# Reference enterprise network from the project brief.
+#
+#                     Internet
+#                        |
+#                   Web Server (web01)
+#                    /      \
+#             API Server   Backup (bak01)
+#              (api02)
+#                 |
+#              Database (db01)   <- crown jewel
+#                 |
+#           Admin Workstation (adm01)
+#
+# Tuning notes:
+#   criticality  - business value of the asset
+#   patch_level  - 0 unpatched, 1 fully hardened; damps exploitability
+#   strength     - credential hardening; 0 means trivially replayable
+#   filtered     - 0 wide open, 1 blocked by segmentation
+
+name: acme-enterprise
+
+hosts:
+  - id: web01
+    name: Web Server
+    ip: 203.0.113.10
+    os: ubuntu-22.04
+    exposure: INTERNET
+    criticality: 0.4
+    patch_level: 0.3
+    tags: [dmz, public]
+    services:
+      - name: nginx
+        port: 443
+        version: "1.18.0"
+        vulnerabilities:
+          - cve: CVE-2021-23017
+            cvss: 9.4
+            exploitability: 0.7
+            privilege_gained: SERVICE
+            description: nginx resolver off-by-one heap write
+      - name: ssh
+        port: 22
+        version: OpenSSH 8.9
+    credentials:
+      - username: svc_web
+        kind: api_token
+        privilege: SERVICE
+        strength: 0.4
+        grants_access: [api02]
+
+  - id: api02
+    name: API Server
+    ip: 10.20.1.15
+    os: ubuntu-22.04
+    exposure: DMZ
+    criticality: 0.6
+    patch_level: 0.4
+    tags: [app-tier]
+    services:
+      - name: tomcat
+        port: 8080
+        version: "9.0.62"
+        vulnerabilities:
+          - cve: CVE-2022-22965
+            cvss: 9.8
+            exploitability: 0.8
+            privilege_gained: SERVICE
+            description: Spring4Shell RCE
+      - name: ssh
+        port: 22
+    credentials:
+      - username: app_db_user
+        kind: password
+        privilege: USER
+        strength: 0.2
+        grants_access: [db01]
+
+  - id: bak01
+    name: Backup Server
+    ip: 10.20.1.40
+    os: debian-12
+    exposure: INTERNAL
+    criticality: 0.7
+    patch_level: 0.6
+    tags: [storage]
+    services:
+      - name: rsync
+        port: 873
+        vulnerabilities:
+          - cve: CVE-2022-29154
+            cvss: 7.5
+            exploitability: 0.4
+            privilege_gained: USER
+            description: rsync client-side path traversal
+
+  - id: db01
+    name: Production Database
+    ip: 10.30.2.20
+    os: rhel-9
+    exposure: RESTRICTED
+    criticality: 0.95
+    crown_jewel: true
+    patch_level: 0.7
+    tags: [crown-jewel, pii]
+    services:
+      - name: postgresql
+        port: 5432
+        version: "14.2"
+        vulnerabilities:
+          - cve: CVE-2022-1552
+            cvss: 8.8
+            exploitability: 0.5
+            privilege_gained: ADMIN
+            description: Autovacuum privilege escalation
+
+  - id: adm01
+    name: Admin Workstation
+    ip: 10.30.2.55
+    os: windows-11
+    exposure: RESTRICTED
+    criticality: 0.85
+    patch_level: 0.5
+    tags: [privileged-access]
+    services:
+      - name: rdp
+        port: 3389
+        vulnerabilities:
+          - cve: CVE-2019-0708
+            cvss: 9.8
+            exploitability: 0.6
+            privilege_gained: ADMIN
+            description: BlueKeep pre-auth RDP RCE
+    credentials:
+      - username: domain_admin
+        kind: kerberos_ticket
+        privilege: ADMIN
+        strength: 0.3
+        grants_access: [db01, bak01]
+
+users:
+  - username: dba
+    role: database-administrator
+    privilege: ADMIN
+    logs_into: [adm01, db01]
+  - username: devops
+    role: platform-engineer
+    privilege: USER
+    logs_into: [web01, api02]
+
+connections:
+  - {from: INTERNET, to: web01, protocol: tcp, ports: [443], filtered: 0.0}
+  - {from: web01, to: api02, protocol: tcp, ports: [8080], filtered: 0.2}
+  - {from: web01, to: bak01, protocol: tcp, ports: [873], filtered: 0.5}
+  - {from: api02, to: db01, protocol: tcp, ports: [5432], filtered: 0.3}
+  - {from: db01, to: adm01, protocol: tcp, ports: [3389], filtered: 0.6}
+  - {from: adm01, to: db01, protocol: tcp, ports: [5432], filtered: 0.1}
+  - {from: bak01, to: db01, protocol: tcp, ports: [5432], filtered: 0.7}
+
+hierarchy:
+  type: organisation
+  id: acme
+  name: ACME Corp
+  children:
+    - type: department
+      id: dept:engineering
+      name: Engineering
+      children:
+        - type: subnet
+          id: subnet:dmz
+          name: DMZ 10.20.1.0/24
+          hosts: [web01, api02]
+        - type: subnet
+          id: subnet:storage
+          name: Storage 10.20.1.32/27
+          hosts: [bak01]
+    - type: department
+      id: dept:operations
+      name: Operations
+      children:
+        - type: subnet
+          id: subnet:core
+          name: Core 10.30.2.0/24
+          hosts: [db01, adm01]

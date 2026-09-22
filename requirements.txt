@@ -1,0 +1,9 @@
+# Stage 1 runtime dependencies.
+# Stage 2+ adds: fastapi, uvicorn, neo4j, psycopg, redis, sqlalchemy, scikit-learn
+networkx>=3.2
+pyyaml>=6.0
+typer>=0.12
+rich>=13.7
+
+# Development
+pytest>=8.0
