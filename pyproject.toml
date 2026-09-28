@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deceptiongraph"
-version = "0.1.0"
+version = "0.2.0"
 description = "Adaptive cyber-deception digital twin: attack-graph analysis and deception placement"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -20,6 +20,7 @@ from rich.tree import Tree
 
 from ..analysis.attack_graph import AttackGraphEngine, AttackPath
 from ..domain.composite import CompositeComponent, InfrastructureComponent
+from ..facade import SecurityFacade
 from ..graph.loader import load_network
 from ..graph.model import INTERNET
 from ..graph.repository import InMemoryGraphRepository
@@ -297,7 +298,165 @@ def export(
     )
 
 
+@app.command()
+def deceive(
+    network: Path = NetworkArg,
+    strategy: str = typer.Option(
+        "attack-path", "--strategy", "-S", help="random | risk | centrality | attack-path."
+    ),
+    budget: int = typer.Option(3, "--budget", "-b", help="How many decoys to place."),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable output."),
+) -> None:
+    """Decide where to place decoys, and report what that buys you."""
+    from ..deception.placement import strategy_for
+
+    repo = _load(network)
+    try:
+        chosen = strategy_for(strategy)
+    except ValueError as exc:
+        console.print(f"[bold red]error:[/] {exc}")
+        raise typer.Exit(code=1) from exc
+    if budget < 1:
+        console.print("[bold red]error:[/] budget must be at least 1")
+        raise typer.Exit(code=1)
+
+    facade = SecurityFacade(repo, strategy=chosen)
+    deployment = facade.deploy_deception(budget=budget)
+
+    if as_json:
+        console.print_json(json.dumps(deployment.as_dict()))
+        return
+
+    if not deployment.assets:
+        console.print("[yellow]Nothing to defend: no reachable hosts.[/]")
+        return
+
+    console.print(
+        Panel(
+            "\n".join(deployment.recommendations()),
+            title=f"Recommended deception placement ([bold]{deployment.strategy}[/])",
+            border_style="green",
+        )
+    )
+
+    table = Table(title="Deployed decoys", header_style="bold cyan")
+    for column in ("Host", "Kind", "Decoy", "Mimics", "Believability", "P(detect)"):
+        table.add_column(column)
+    for asset in deployment.assets:
+        table.add_row(
+            asset.host_id,
+            asset.kind.value,
+            asset.lure.name,
+            asset.protects or "-",
+            f"{asset.lure.believability:.2f}",
+            _heat(asset.detection_probability),
+        )
+    console.print(table)
+
+    for asset in deployment.assets:
+        console.print(f"[dim]{asset.host_id}: {asset.rationale}[/]")
+        console.print(f"[dim]  watches: {asset.sensor.watches}[/]")
+
+    console.print(_coverage_panel(deployment.coverage))
+
+
+@app.command()
+def compare(
+    network: Path = NetworkArg,
+    budget: int = typer.Option(3, "--budget", "-b", help="Decoy budget given to each strategy."),
+    seed: int = typer.Option(1337, "--seed", help="Seed for the random baseline."),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable output."),
+) -> None:
+    """Run the placement strategies head to head on the same network."""
+    repo = _load(network)
+    if budget < 1:
+        console.print("[bold red]error:[/] budget must be at least 1")
+        raise typer.Exit(code=1)
+
+    results = SecurityFacade(repo).deception.compare(budget=budget, seed=seed)
+
+    if as_json:
+        console.print_json(json.dumps([d.as_dict() for d in results]))
+        return
+
+    table = Table(
+        title=f"Placement strategies at a budget of {budget}", header_style="bold cyan"
+    )
+    table.add_column("Strategy", no_wrap=True)
+    for column in ("P(detect)", "Hops", "Jewels", "Residual", "Hosts"):
+        table.add_column(column, justify="right" if column != "Hosts" else "left")
+    for deployment in results:
+        coverage = deployment.coverage
+        table.add_row(
+            deployment.strategy,
+            _heat(coverage.detection_probability),
+            "-" if coverage.mean_hops_to_detection is None
+            else f"{coverage.mean_hops_to_detection:.2f}",
+            f"{coverage.critical_asset_coverage:.0%}",
+            f"{coverage.undetected_crown_jewel_risk:.3f}",
+            ", ".join(deployment.hosts),
+        )
+    console.print(table)
+    console.print(
+        "[dim]Lower hops-to-detect is better: the attacker is caught earlier. "
+        "'random' is the control - a strategy that cannot beat it is not worth its cost.[/]"
+    )
+
+
+@app.command()
+def report(
+    network: Path = NetworkArg,
+    strategy: str = typer.Option("attack-path", "--strategy", "-S", help="Placement strategy."),
+    budget: int = typer.Option(3, "--budget", "-b", help="Decoy budget."),
+    out: Path = typer.Option(None, "--out", "-o", help="Write the JSON report to a file."),
+) -> None:
+    """Analyse, deploy deception and print the combined report."""
+    from ..deception.placement import strategy_for
+
+    repo = _load(network)
+    try:
+        facade = SecurityFacade(repo, strategy=strategy_for(strategy))
+    except ValueError as exc:
+        console.print(f"[bold red]error:[/] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    facade.deploy_deception(budget=budget)
+    data = facade.generate_report()
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        console.print(f"[green]Wrote report ->[/] {out}")
+        return
+
+    console.print(
+        Panel(
+            "\n".join(f"- {line}" for line in data["recommendations"]),
+            title=f"Security report: {data['network']}",
+            border_style="magenta",
+        )
+    )
+    console.print(_coverage_panel(facade.deployment.coverage))
+
+
 # -- rendering helpers -----------------------------------------------------
+
+
+def _coverage_panel(coverage) -> Panel:
+    hops = (
+        "-" if coverage.mean_hops_to_detection is None
+        else f"{coverage.mean_hops_to_detection:.2f}"
+    )
+    return Panel(
+        f"Decoys placed         {coverage.decoys_used}\n"
+        f"P(detect worst path)  {coverage.detection_probability:.2f}\n"
+        f"Hops before detection {hops}\n"
+        f"Crown jewel coverage  {coverage.critical_asset_coverage:.0%}\n"
+        f"Reachable host cover  {coverage.host_coverage:.0%}\n"
+        f"Residual risk         {coverage.undetected_crown_jewel_risk:.3f}",
+        title="Deception coverage",
+        border_style="green",
+    )
 
 
 def _render_path(path: AttackPath) -> str:
