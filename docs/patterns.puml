@@ -1,0 +1,131 @@
+@startuml patterns
+title DeceptionGraph - design patterns
+
+skinparam shadowing false
+skinparam defaultFontName sans-serif
+
+package "Composite - infrastructure risk" {
+  abstract class InfrastructureComponent {
+    +id: str
+    +calculate_risk(): RiskScore
+    +hosts(): Iterator[Host]
+  }
+  class HostComponent {
+    +host: Host
+  }
+  class CompositeComponent {
+    +add(child)
+    +remove(child_id)
+    +children
+  }
+  InfrastructureComponent <|-- HostComponent
+  InfrastructureComponent <|-- CompositeComponent
+  CompositeComponent o--> "0..*" InfrastructureComponent
+}
+
+package "Abstract Factory - deception assets" {
+  abstract class DeceptionFactory {
+    +kind: DeceptionKind
+    +{abstract} create_lure(host, mimics): Lure
+    +{abstract} create_sensor(lure): Sensor
+    +create_marker(lure): Marker
+    +create(host, mimics): DeceptionAsset
+  }
+  class CredentialDecoyFactory
+  class NetworkDecoyFactory
+  class DocumentDecoyFactory
+  DeceptionFactory <|-- CredentialDecoyFactory
+  DeceptionFactory <|-- NetworkDecoyFactory
+  DeceptionFactory <|-- DocumentDecoyFactory
+
+  class DeceptionAsset {
+    +lure: Lure
+    +sensor: Sensor
+    +marker: Marker
+    +detection_probability
+  }
+  DeceptionFactory ..> DeceptionAsset : creates
+}
+
+package "Strategy - placement" {
+  abstract class DeceptionPlacementStrategy {
+    +name: str
+    +{abstract} score_hosts(context): dict
+    +plan(context, budget): Placement[]
+  }
+  class RandomPlacement
+  class RiskBasedPlacement
+  class CentralityBasedPlacement
+  class AttackPathPlacement
+  DeceptionPlacementStrategy <|-- RandomPlacement
+  DeceptionPlacementStrategy <|-- RiskBasedPlacement
+  DeceptionPlacementStrategy <|-- CentralityBasedPlacement
+  DeceptionPlacementStrategy <|-- AttackPathPlacement
+}
+
+package "State - attacker progression" {
+  abstract class AttackerState {
+    +stage: AttackerStage
+    +{abstract} posture(): DeceptionPosture
+    +{abstract} next_state(event, hosts_seen): AttackerState
+  }
+  class Reconnaissance
+  class InitialAccess
+  class Discovery
+  class LateralMovement
+  class Collection
+  class Exfiltration
+  AttackerState <|-- Reconnaissance
+  AttackerState <|-- InitialAccess
+  AttackerState <|-- Discovery
+  AttackerState <|-- LateralMovement
+  AttackerState <|-- Collection
+  AttackerState <|-- Exfiltration
+}
+
+package "Observer and Mediator - runtime" {
+  interface Observer {
+    +on_event(event)
+  }
+  class EventBus {
+    +subscribe(observer, types)
+    +publish(event)
+  }
+  class ThreatProfiler
+  class IncidentManager
+  class AdaptationEngine
+  class RiskRecalculator
+  class SecurityMediator {
+    +handle(event): Reaction
+    +status(): dict
+  }
+  Observer <|.. ThreatProfiler
+  Observer <|.. IncidentManager
+  Observer <|.. AdaptationEngine
+  Observer <|.. RiskRecalculator
+  EventBus o--> "0..*" Observer
+  SecurityMediator --> EventBus
+  SecurityMediator --> ThreatProfiler
+  SecurityMediator --> IncidentManager
+  SecurityMediator --> AdaptationEngine
+}
+
+package "Facade and Repository" {
+  class SecurityFacade {
+    +analyse_network(): NetworkAnalysis
+    +deploy_deception(budget, strategy): Deployment
+    +generate_report(): dict
+  }
+  interface GraphRepository {
+    +model
+    +save(model)
+    +asset_graph()
+    +connectivity_graph()
+  }
+  class InMemoryGraphRepository
+  class Neo4jGraphRepository
+  GraphRepository <|.. InMemoryGraphRepository
+  GraphRepository <|.. Neo4jGraphRepository
+}
+
+@enduml

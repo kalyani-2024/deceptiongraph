@@ -76,10 +76,23 @@ class Sensor:
     """Human-readable description of the observed action."""
     fidelity: float
     """P(alert | attacker engaged the lure). Below 1 because telemetry drops."""
+    false_alert_rate: float = 0.0
+    """Expected benign alerts per day.
+
+    Deception is prized for being quiet - nothing legitimate has a reason to
+    touch a decoy - but it is never exactly zero. Backup jobs crawl file
+    shares, vulnerability scanners connect to every port, and inventory agents
+    read every credential store. The rate differs by family, so it lives on
+    the sensor rather than being assumed away.
+    """
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.fidelity <= 1.0:
             raise ValueError(f"{self.id}: fidelity must be in [0, 1], got {self.fidelity}")
+        if self.false_alert_rate < 0.0:
+            raise ValueError(
+                f"{self.id}: false_alert_rate must not be negative, got {self.false_alert_rate}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +151,7 @@ class DeceptionAsset:
             "mimics": self.lure.mimics,
             "believability": round(self.lure.believability, 4),
             "fidelity": round(self.sensor.fidelity, 4),
+            "false_alert_rate": round(self.sensor.false_alert_rate, 4),
             "detection_probability": round(self.detection_probability, 4),
             "watches": self.sensor.watches,
             "token": self.marker.token,

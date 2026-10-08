@@ -1,0 +1,105 @@
+@startuml architecture
+title DeceptionGraph - component architecture
+header Rendered with: plantuml docs/architecture.puml
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName sans-serif
+
+package "Input" {
+  [Network definition\n(YAML)] as YAML
+}
+
+package "Graph layer" {
+  [YamlAssetDiscovery] as Discovery
+  [GraphBuilder] as Builder
+  interface "GraphRepository" as Repo
+  [InMemoryGraphRepository] as Memory
+  [Neo4jGraphRepository] as Neo
+}
+
+package "Analysis layer" {
+  [AttackGraphEngine] as Attack
+  [RiskEngine] as Risk
+  [PathPredictor] as Predictor
+}
+
+package "Deception layer" {
+  [DeceptionFactory\n<<abstract factory>>] as Factory
+  [DeceptionPlacementStrategy\n<<strategy>>] as Strategy
+  [DeceptionEngine] as Deception
+  [Coverage] as Coverage
+}
+
+package "Runtime layer" {
+  [EventBus\n<<observer>>] as Bus
+  [ThreatProfiler] as Profiler
+  [AttackerState\n<<state>>] as State
+  [IncidentManager] as Incidents
+  [AdaptationEngine] as Adapt
+  [SecurityMediator\n<<mediator>>] as Mediator
+}
+
+package "Interfaces" {
+  [SecurityFacade\n<<facade>>] as Facade
+  [Typer CLI] as CLI
+  [FastAPI] as API
+  [Agent tools\n(MCP-style)] as Agent
+  [ExperimentRunner] as Experiments
+}
+
+database "PostgreSQL\nsessions, events,\nalerts, metrics" as PG
+database "Redis\nderived graphs" as RD
+
+YAML --> Discovery
+Discovery --> Builder
+Builder --> Repo
+Memory ..|> Repo
+Neo ..|> Repo
+
+Repo --> Attack
+Attack --> Risk
+Attack --> Predictor
+
+Risk --> Deception
+Predictor --> Deception
+Factory --> Deception
+Strategy --> Deception
+Deception --> Coverage
+
+Deception --> Mediator
+Bus --> Profiler
+Bus --> Incidents
+Bus --> Adapt
+Profiler --> State
+Mediator --> Bus
+Mediator --> Profiler
+Mediator --> Incidents
+Mediator --> Adapt
+Adapt --> Deception : re-place decoys
+
+Facade --> Attack
+Facade --> Risk
+Facade --> Predictor
+Facade --> Deception
+CLI --> Facade
+API --> Facade
+Agent --> Facade
+CLI --> Mediator
+API --> Mediator
+Experiments --> Mediator
+
+API ..> PG : optional
+API ..> RD : optional
+
+note right of Strategy
+  random / risk /
+  centrality / attack-path
+end note
+
+note right of Factory
+  credential / network /
+  document families
+end note
+
+@enduml

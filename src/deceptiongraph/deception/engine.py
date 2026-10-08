@@ -197,6 +197,14 @@ class DeceptionEngine:
 
     # -- internals ---------------------------------------------------------
 
+    def build_asset(self, placement: Placement) -> DeceptionAsset:
+        """Build a single decoy from a placement decision.
+
+        Public because the adaptation engine places decoys one at a time, in
+        response to a live actor, rather than planning a whole deployment.
+        """
+        return self._build(placement)
+
     def _build(self, placement: Placement) -> DeceptionAsset:
         host = self.repository.host(placement.host_id)
         if host is None:

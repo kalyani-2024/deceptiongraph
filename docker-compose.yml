@@ -1,0 +1,79 @@
+# Full stack: the API with Neo4j, PostgreSQL and Redis behind it.
+#
+# None of the three are required. `dgraph` and the test suite run with no
+# containers at all, on the in-memory repository - bring this up when you want
+# durable state or to run Cypher against the asset graph by hand.
+#
+#   docker compose up -d
+#   curl localhost:8000/health        # confirms which backends are live
+#   open http://localhost:7474        # Neo4j browser
+#
+# Credentials here are development defaults and are fine to commit precisely
+# because nothing real is behind them. Override every one of them before this
+# is reachable from anywhere but localhost.
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DG_NETWORK: data/networks/enterprise.yaml
+      DG_STRATEGY: attack-path
+      DG_BUDGET: "3"
+      DG_NEO4J_URI: bolt://neo4j:7687
+      DG_NEO4J_USER: neo4j
+      DG_NEO4J_PASSWORD: deceptiongraph
+      DG_DATABASE_URL: postgresql+psycopg://deception:deception@postgres:5432/deceptiongraph
+      DG_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474"   # browser
+      - "7687:7687"   # bolt
+    environment:
+      NEO4J_AUTH: neo4j/deceptiongraph
+      NEO4J_server_memory_heap_max__size: 512M
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "deceptiongraph", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: deception
+      POSTGRES_PASSWORD: deception
+      POSTGRES_DB: deceptiongraph
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deception -d deceptiongraph"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+volumes:
+  neo4j-data:
+  postgres-data:

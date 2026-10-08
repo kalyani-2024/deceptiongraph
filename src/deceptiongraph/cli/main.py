@@ -1,10 +1,16 @@
-"""DeceptionGraph command line interface (stage 1).
+"""DeceptionGraph command line interface.
 
-    dgraph discover  data/networks/enterprise.yaml
-    dgraph paths     data/networks/enterprise.yaml --target db01
-    dgraph risk      data/networks/enterprise.yaml
-    dgraph predict   data/networks/enterprise.yaml --from web01
-    dgraph export    data/networks/enterprise.yaml --out graph.json
+    dgraph discover   data/networks/enterprise.yaml
+    dgraph paths      data/networks/enterprise.yaml --target db01
+    dgraph risk       data/networks/enterprise.yaml
+    dgraph predict    data/networks/enterprise.yaml --from web01
+    dgraph deceive    data/networks/enterprise.yaml --budget 3
+    dgraph simulate   data/networks/campus.yaml --runs 10
+    dgraph experiment data/networks/campus.yaml --trials 300
+    dgraph compare    data/networks/enterprise.yaml --budget 2
+    dgraph report     data/networks/enterprise.yaml --out report.json
+    dgraph export     data/networks/enterprise.yaml --out graph.json
+    dgraph serve      --port 8000
 """
 
 from __future__ import annotations
@@ -27,7 +33,7 @@ from ..graph.repository import InMemoryGraphRepository
 
 app = typer.Typer(
     name="dgraph",
-    help="DeceptionGraph - adaptive cyber-deception digital twin (stage 1: analysis).",
+    help="DeceptionGraph - adaptive cyber-deception digital twin. Analyse a network, place decoys where they will be tripped, and watch the posture adapt.",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -437,6 +443,195 @@ def report(
         )
     )
     console.print(_coverage_panel(facade.deployment.coverage))
+
+
+@app.command()
+def simulate(
+    network: Path = NetworkArg,
+    budget: int = typer.Option(3, "--budget", "-b", help="Decoys to deploy before the attack."),
+    strategy: str = typer.Option("attack-path", "--strategy", "-S", help="Placement strategy."),
+    runs: int = typer.Option(1, "--runs", "-n", help="How many attacks to simulate."),
+    seed: int = typer.Option(None, "--seed", help="Seed, for a repeatable run."),
+    adaptive: bool = typer.Option(
+        True, "--adaptive/--static", help="Let the system move decoys as the attack unfolds."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable output."),
+) -> None:
+    """Run a simulated attack and watch the adaptation loop respond."""
+    from ..deception.placement import strategy_for
+    from ..runtime.mediator import SecurityMediator
+    from ..runtime.simulator import AttackSimulator
+
+    repo = _load(network)
+    try:
+        chosen = strategy_for(strategy)
+    except ValueError as exc:
+        console.print(f"[bold red]error:[/] {exc}")
+        raise typer.Exit(code=1) from exc
+    if budget < 1 or runs < 1:
+        console.print("[bold red]error:[/] budget and runs must both be at least 1")
+        raise typer.Exit(code=1)
+
+    facade = SecurityFacade(repo, strategy=chosen)
+    deployment = facade.deploy_deception(budget=budget)
+    mediator = (
+        SecurityMediator(repo, deception=facade.deception, deployment=deployment)
+        if adaptive
+        else None
+    )
+    simulator = AttackSimulator(
+        repo, mediator=mediator, assets=list(deployment.assets), seed=seed
+    )
+
+    results = [simulator.run(actor_id=f"actor-{i + 1}") for i in range(runs)]
+
+    if as_json:
+        console.print_json(
+            json.dumps(
+                {
+                    "deployment": deployment.as_dict(),
+                    "runs": [r.as_dict() for r in results],
+                    "status": mediator.status() if mediator else None,
+                }
+            )
+        )
+        return
+
+    console.print(
+        Panel(
+            "\n".join(deployment.recommendations()),
+            title=f"Standing deception ([bold]{deployment.strategy}[/], "
+            f"{'adaptive' if adaptive else 'static'})",
+            border_style="green",
+        )
+    )
+
+    detected = 0
+    for index, result in enumerate(results, start=1):
+        colour = "green" if result.detected else "red"
+        console.print(f"[{colour}]Run {index}:[/] {result.describe()}")
+        detected += int(result.detected)
+
+        for step in result.steps:
+            if step.reaction is not None and step.reaction.triggered:
+                console.print(
+                    Panel(
+                        step.reaction.describe(),
+                        title="[bold red]DECEPTION TRIGGERED[/]",
+                        border_style="red",
+                    )
+                )
+
+    console.print(
+        f"\nDetected [bold]{detected}[/] of {runs} "
+        f"({detected / runs:.0%})" if runs else ""
+    )
+
+    if mediator is not None:
+        status = mediator.status()
+        console.print(
+            Panel(
+                f"Live decoys      {status['live_decoys']}\n"
+                f"Burned decoys    {status['burned_decoys']}\n"
+                f"Adaptations      {status['adaptations']}\n"
+                f"Open incidents   {len(status['open_incidents'])}\n"
+                f"Network risk     {status['network_risk']:.2f}",
+                title="Posture after the attack",
+                border_style="yellow",
+            )
+        )
+        if status["most_advanced_actor"]:
+            actor = status["most_advanced_actor"]
+            console.print(
+                Panel(
+                    f"Stage            {actor['stage']}\n"
+                    f"Sophistication   {actor['sophistication']}\n"
+                    f"Objective        {actor['objective'] or 'unknown'}\n"
+                    f"Next target      {actor['likely_next_target'] or 'unknown'}\n"
+                    f"Confidence       {actor['confidence']:.2f}\n"
+                    f"Hosts touched    {', '.join(actor['hosts_seen']) or '-'}",
+                    title="Attacker profile",
+                    border_style="magenta",
+                )
+            )
+
+
+@app.command()
+def experiment(
+    network: Path = NetworkArg,
+    budget: int = typer.Option(3, "--budget", "-b", help="Decoy budget for every arm."),
+    trials: int = typer.Option(200, "--trials", "-t", help="Simulated attacks per arm."),
+    seed: int = typer.Option(2024, "--seed", help="Base seed; arms are paired on it."),
+    sweep: bool = typer.Option(False, "--sweep", help="Repeat across budgets 1, 2, 3 and 5."),
+    out: Path = typer.Option(None, "--out", "-o", help="Write the full report as JSON."),
+) -> None:
+    """Measure the placement strategies against each other."""
+    from ..experiments.runner import ExperimentRunner
+
+    repo = _load(network)
+    if budget < 1 or trials < 1:
+        console.print("[bold red]error:[/] budget and trials must both be at least 1")
+        raise typer.Exit(code=1)
+
+    runner = ExperimentRunner(repo, trials=trials, seed=seed)
+    with console.status(f"Running {trials} simulated attacks per strategy..."):
+        reports = runner.sweep(budgets=(1, 2, 3, 5)) if sweep else [runner.run(budget=budget)]
+
+    for report in reports:
+        rows = report.table()
+        table = Table(
+            title=f"{report.network}: budget {report.budget}, {report.trials} trials",
+            header_style="bold cyan",
+        )
+        table.add_column(rows[0][0], no_wrap=True)
+        for column in rows[0][1:]:
+            table.add_column(column, justify="right")
+        for row in rows[1:]:
+            table.add_row(*row)
+        console.print(table)
+        console.print(Panel(report.verdict(), title="Verdict", border_style="magenta"))
+
+    console.print(
+        "[dim]Detect = share of simulated attacks caught. Hops = how early. "
+        "'random' is the control; a win inside the +/-95% interval is not a win.[/]"
+    )
+
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        payload = [r.as_dict() for r in reports]
+        out.write_text(
+            json.dumps(payload[0] if len(payload) == 1 else payload, indent=2, default=str),
+            encoding="utf-8",
+        )
+        console.print(f"[green]Wrote[/] {out}")
+
+
+@app.command()
+def serve(
+    network: Path = typer.Option(
+        None, "--network", help="Network to serve. Defaults to DG_NETWORK."
+    ),
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address."),
+    port: int = typer.Option(8000, "--port", "-p", help="Port."),
+    reload: bool = typer.Option(False, "--reload", help="Reload on code changes."),
+) -> None:
+    """Start the HTTP API (no UI - it is a service for other software)."""
+    try:
+        import uvicorn
+    except ImportError as exc:  # pragma: no cover - depends on the install extra
+        console.print(
+            "[bold red]error:[/] uvicorn is not installed. "
+            'Install the service extra: pip install -e ".[service]"'
+        )
+        raise typer.Exit(code=1) from exc
+
+    if network is not None:
+        import os
+
+        os.environ["DG_NETWORK"] = str(network)
+
+    console.print(f"[green]DeceptionGraph API[/] on http://{host}:{port}  (docs at /docs)")
+    uvicorn.run("deceptiongraph.api.app:app", host=host, port=port, reload=reload)
 
 
 # -- rendering helpers -----------------------------------------------------

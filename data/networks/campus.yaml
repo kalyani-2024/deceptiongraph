@@ -1,0 +1,296 @@
+# A larger, branchier network for the stage 5 experiments.
+#
+# The 5-host reference network is too small to separate the placement
+# strategies: at any useful budget they all cover the same three hosts. This
+# one has 16 hosts, three entry points and two crown jewels, with several
+# routes of differing risk to each - so a strategy that picks the wrong hosts
+# has somewhere wrong to pick.
+#
+#   Internet --> web-pub, vpn-gw, mail-gw
+#                   |        |        |
+#                 app tier (3) ---- jump host
+#                   |                 |
+#                 data tier ------ admin tier
+#                   |
+#        finance-db (jewel)   hr-db (jewel)
+
+name: campus
+
+hosts:
+  # -- perimeter ---------------------------------------------------------
+  - id: web-pub
+    name: Public Web
+    exposure: INTERNET
+    criticality: 0.3
+    patch_level: 0.3
+    services:
+      - name: nginx
+        port: 443
+        vulnerabilities:
+          - {cve: CVE-2021-23017, cvss: 9.4, exploitability: 0.7, privilege_gained: SERVICE}
+    credentials:
+      - {username: svc_web, kind: api_token, privilege: SERVICE, strength: 0.4, grants_access: [app-01]}
+
+  - id: vpn-gw
+    name: VPN Gateway
+    exposure: INTERNET
+    criticality: 0.5
+    patch_level: 0.5
+    services:
+      - name: openvpn
+        port: 1194
+        protocol: udp
+        vulnerabilities:
+          - {cve: CVE-2020-11810, cvss: 7.5, exploitability: 0.5, privilege_gained: USER}
+
+  - id: mail-gw
+    name: Mail Gateway
+    exposure: INTERNET
+    criticality: 0.4
+    patch_level: 0.2
+    services:
+      - name: postfix
+        port: 25
+        vulnerabilities:
+          - {cve: CVE-2023-51764, cvss: 7.5, exploitability: 0.6, privilege_gained: SERVICE}
+
+  # -- application tier --------------------------------------------------
+  - id: app-01
+    name: App Server 01
+    exposure: DMZ
+    criticality: 0.6
+    patch_level: 0.4
+    services:
+      - name: tomcat
+        port: 8080
+        vulnerabilities:
+          - {cve: CVE-2022-22965, cvss: 9.8, exploitability: 0.8, privilege_gained: SERVICE}
+    credentials:
+      - {username: app_db_ro, privilege: USER, strength: 0.2, grants_access: [data-01]}
+
+  - id: app-02
+    name: App Server 02
+    exposure: DMZ
+    criticality: 0.6
+    patch_level: 0.7
+    services:
+      - name: tomcat
+        port: 8080
+        vulnerabilities:
+          - {cve: CVE-2022-22965, cvss: 9.8, exploitability: 0.8, privilege_gained: SERVICE}
+
+  - id: app-03
+    name: App Server 03 (legacy)
+    exposure: DMZ
+    criticality: 0.45
+    patch_level: 0.1
+    services:
+      - name: struts
+        port: 8009
+        vulnerabilities:
+          - {cve: CVE-2017-5638, cvss: 10.0, exploitability: 0.9, privilege_gained: ROOT}
+    credentials:
+      - {username: legacy_svc, privilege: ADMIN, strength: 0.1, grants_access: [data-02, jump-01]}
+
+  - id: cache-01
+    name: Redis Cache
+    exposure: DMZ
+    criticality: 0.35
+    patch_level: 0.5
+    services:
+      - name: redis
+        port: 6379
+        vulnerabilities:
+          - {cve: CVE-2022-0543, cvss: 10.0, exploitability: 0.7, privilege_gained: SERVICE}
+
+  # -- access tier -------------------------------------------------------
+  - id: jump-01
+    name: Jump Host
+    exposure: INTERNAL
+    criticality: 0.7
+    patch_level: 0.6
+    services:
+      - name: ssh
+        port: 22
+        vulnerabilities:
+          - {cve: CVE-2023-38408, cvss: 9.8, exploitability: 0.4, privilege_gained: USER}
+    credentials:
+      - {username: ops_admin, kind: ssh_key, privilege: ADMIN, strength: 0.3, grants_access: [adm-01, data-01]}
+
+  - id: build-01
+    name: Build Server
+    exposure: INTERNAL
+    criticality: 0.55
+    patch_level: 0.3
+    services:
+      - name: jenkins
+        port: 8081
+        vulnerabilities:
+          - {cve: CVE-2024-23897, cvss: 9.8, exploitability: 0.7, privilege_gained: SERVICE}
+    credentials:
+      - {username: ci_deploy, kind: api_token, privilege: ADMIN, strength: 0.2, grants_access: [app-01, app-02, app-03]}
+
+  - id: file-01
+    name: File Share
+    exposure: INTERNAL
+    criticality: 0.6
+    patch_level: 0.5
+    services:
+      - name: smb
+        port: 445
+        vulnerabilities:
+          - {cve: CVE-2020-0796, cvss: 10.0, exploitability: 0.6, privilege_gained: ADMIN}
+
+  # -- data tier ---------------------------------------------------------
+  - id: data-01
+    name: Data Node 01
+    exposure: RESTRICTED
+    criticality: 0.8
+    patch_level: 0.6
+    services:
+      - name: postgresql
+        port: 5432
+        vulnerabilities:
+          - {cve: CVE-2022-1552, cvss: 8.8, exploitability: 0.5, privilege_gained: ADMIN}
+    credentials:
+      - {username: replication, privilege: ADMIN, strength: 0.3, grants_access: [finance-db]}
+
+  - id: data-02
+    name: Data Node 02
+    exposure: RESTRICTED
+    criticality: 0.8
+    patch_level: 0.4
+    services:
+      - name: mysql
+        port: 3306
+        vulnerabilities:
+          - {cve: CVE-2021-2154, cvss: 7.1, exploitability: 0.4, privilege_gained: USER}
+    credentials:
+      - {username: hr_etl, privilege: USER, strength: 0.2, grants_access: [hr-db]}
+
+  - id: finance-db
+    name: Finance Database
+    exposure: RESTRICTED
+    criticality: 1.0
+    crown_jewel: true
+    patch_level: 0.8
+    tags: [pci, crown-jewel]
+    services:
+      - name: oracle
+        port: 1521
+        vulnerabilities:
+          - {cve: CVE-2022-21496, cvss: 7.5, exploitability: 0.3, privilege_gained: ADMIN}
+
+  - id: hr-db
+    name: HR Database
+    exposure: RESTRICTED
+    criticality: 0.9
+    crown_jewel: true
+    patch_level: 0.7
+    tags: [pii, crown-jewel]
+    services:
+      - name: postgresql
+        port: 5432
+        vulnerabilities:
+          - {cve: CVE-2022-1552, cvss: 8.8, exploitability: 0.5, privilege_gained: ADMIN}
+
+  # -- admin tier --------------------------------------------------------
+  - id: adm-01
+    name: Admin Workstation
+    exposure: RESTRICTED
+    criticality: 0.85
+    patch_level: 0.5
+    os: windows-11
+    services:
+      - name: rdp
+        port: 3389
+        vulnerabilities:
+          - {cve: CVE-2019-0708, cvss: 9.8, exploitability: 0.6, privilege_gained: ADMIN}
+    credentials:
+      - {username: domain_admin, kind: kerberos_ticket, privilege: ADMIN, strength: 0.3, grants_access: [finance-db, hr-db, dc-01]}
+
+  - id: dc-01
+    name: Domain Controller
+    exposure: RESTRICTED
+    criticality: 0.95
+    patch_level: 0.7
+    os: windows-server-2022
+    services:
+      - name: ldap
+        port: 389
+        vulnerabilities:
+          - {cve: CVE-2021-42287, cvss: 8.8, exploitability: 0.5, privilege_gained: ROOT}
+
+users:
+  - {username: dba, role: database-administrator, privilege: ADMIN, logs_into: [adm-01, data-01, finance-db]}
+  - {username: devops, role: platform-engineer, privilege: USER, logs_into: [build-01, app-01, app-02]}
+  - {username: helpdesk, role: support, privilege: USER, logs_into: [jump-01, adm-01]}
+
+connections:
+  - {from: INTERNET, to: web-pub, ports: [443]}
+  - {from: INTERNET, to: vpn-gw, ports: [1194]}
+  - {from: INTERNET, to: mail-gw, ports: [25]}
+
+  - {from: web-pub, to: app-01, ports: [8080], filtered: 0.2}
+  - {from: web-pub, to: app-02, ports: [8080], filtered: 0.2}
+  - {from: web-pub, to: cache-01, ports: [6379], filtered: 0.4}
+  - {from: vpn-gw, to: jump-01, ports: [22], filtered: 0.3}
+  - {from: vpn-gw, to: file-01, ports: [445], filtered: 0.5}
+  - {from: mail-gw, to: app-03, ports: [8009], filtered: 0.3}
+  - {from: mail-gw, to: file-01, ports: [445], filtered: 0.6}
+
+  - {from: app-01, to: data-01, ports: [5432], filtered: 0.3}
+  - {from: app-02, to: data-01, ports: [5432], filtered: 0.3}
+  - {from: app-03, to: data-02, ports: [3306], filtered: 0.2}
+  - {from: app-01, to: cache-01, ports: [6379], filtered: 0.2}
+  - {from: cache-01, to: build-01, ports: [8081], filtered: 0.6}
+  - {from: file-01, to: build-01, ports: [8081], filtered: 0.5}
+  - {from: build-01, to: app-01, ports: [8080], filtered: 0.3}
+  - {from: jump-01, to: adm-01, ports: [3389], filtered: 0.4}
+  - {from: jump-01, to: data-01, ports: [5432], filtered: 0.5}
+  - {from: file-01, to: jump-01, ports: [22], filtered: 0.5}
+
+  - {from: data-01, to: finance-db, ports: [1521], filtered: 0.4}
+  - {from: data-02, to: hr-db, ports: [5432], filtered: 0.4}
+  - {from: adm-01, to: finance-db, ports: [1521], filtered: 0.2}
+  - {from: adm-01, to: hr-db, ports: [5432], filtered: 0.2}
+  - {from: adm-01, to: dc-01, ports: [389], filtered: 0.3}
+  - {from: dc-01, to: finance-db, ports: [1521], filtered: 0.5}
+
+hierarchy:
+  type: organisation
+  id: campus
+  name: Campus
+  children:
+    - type: department
+      id: dept:external
+      name: External Services
+      children:
+        - type: subnet
+          id: subnet:perimeter
+          name: Perimeter DMZ
+          hosts: [web-pub, vpn-gw, mail-gw]
+    - type: department
+      id: dept:engineering
+      name: Engineering
+      children:
+        - type: subnet
+          id: subnet:app
+          name: Application Tier
+          hosts: [app-01, app-02, app-03, cache-01]
+        - type: subnet
+          id: subnet:internal
+          name: Internal Services
+          hosts: [jump-01, build-01, file-01]
+    - type: department
+      id: dept:data
+      name: Data and Operations
+      children:
+        - type: subnet
+          id: subnet:data
+          name: Data Tier
+          hosts: [data-01, data-02, finance-db, hr-db]
+        - type: subnet
+          id: subnet:admin
+          name: Admin Tier
+          hosts: [adm-01, dc-01]

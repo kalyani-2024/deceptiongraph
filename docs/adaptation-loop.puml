@@ -1,0 +1,55 @@
+@startuml adaptation-loop
+title DeceptionGraph - what happens when a decoy fires
+
+skinparam shadowing false
+skinparam defaultFontName sans-serif
+
+actor Attacker
+participant "Decoy\n(lure + sensor)" as Decoy
+participant EventBus as Bus
+participant SecurityMediator as Mediator
+participant ThreatProfiler as Profiler
+participant AttackerState as State
+participant AdaptationEngine as Adapt
+participant IncidentManager as Incidents
+participant PathPredictor as Predictor
+
+Attacker -> Decoy : reads fake_production_database_password.txt
+Decoy -> Bus : Event(DECOY_AUTHENTICATED, token)
+
+Bus -> Profiler : on_event
+Profiler -> State : next_state(event)
+State --> Profiler : LATERAL_MOVEMENT
+Bus -> Incidents : on_event -> opens INC-0001
+Bus -> Adapt : on_event -> marks decoy BURNED
+
+note right of Bus
+  Observer fan-out: every observer
+  hears the event, none of them
+  know about each other
+end note
+
+Mediator -> Profiler : profile(actor)
+Profiler -> Predictor : objective / next_hops
+Predictor --> Profiler : db01
+Profiler --> Mediator : stage, sophistication,\nobjective, next target
+
+note right of Mediator
+  The mediator owns the ordering:
+  profile first, because everything
+  else keys off the stage
+end note
+
+Mediator -> Adapt : adapt(profile)
+Adapt -> Adapt : retire burned, then re-seed\nthat host with another family
+Adapt -> Predictor : next_hops(current)
+Predictor --> Adapt : ranked moves
+Adapt --> Mediator : new decoys, one hop ahead
+
+Mediator -> Incidents : apply_profile(profile)
+Incidents --> Mediator : INC-0001 escalated to HIGH
+
+Mediator --> Attacker : (nothing visible)
+Mediator --> Decoy : Reaction\nprofile + incident + adaptation
+
+@enduml

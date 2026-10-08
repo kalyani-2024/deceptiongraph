@@ -31,6 +31,8 @@ class DeceptionFactory(ABC):
     kind: DeceptionKind
     base_believability: float = 0.5
     sensor_fidelity: float = 0.9
+    false_alert_rate: float = 0.05
+    """Expected benign alerts per day from one sensor of this family."""
 
     def __init__(self) -> None:
         self._serial = count(1)
@@ -89,6 +91,8 @@ class CredentialDecoyFactory(DeceptionFactory):
     kind = DeceptionKind.CREDENTIAL
     base_believability = 0.6
     sensor_fidelity = 0.95
+    false_alert_rate = 0.05
+    """Inventory and secret-scanning agents occasionally read credential stores."""
 
     def create_lure(self, host: Host, mimics: Host | None = None) -> Lure:
         target = _slug(mimics.name) if mimics else "prod"
@@ -115,6 +119,7 @@ class CredentialDecoyFactory(DeceptionFactory):
             lure_id=lure.id,
             watches=f"authentication attempt as {lure.payload['username']}, or read of {lure.name}",
             fidelity=self.sensor_fidelity,
+            false_alert_rate=self.false_alert_rate,
         )
 
 
@@ -124,7 +129,8 @@ class NetworkDecoyFactory(DeceptionFactory):
     kind = DeceptionKind.NETWORK
     base_believability = 0.5
     sensor_fidelity = 0.98
-    """Network decoys have the cleanest signal: nothing legitimate connects."""
+    false_alert_rate = 0.01
+    """The cleanest signal of the three: almost nothing legitimate connects."""
 
     def create_lure(self, host: Host, mimics: Host | None = None) -> Lure:
         if mimics is not None:
@@ -157,6 +163,7 @@ class NetworkDecoyFactory(DeceptionFactory):
             lure_id=lure.id,
             watches=f"any connection to {lure.payload['hostname']}:{lure.payload['port']}",
             fidelity=self.sensor_fidelity,
+            false_alert_rate=self.false_alert_rate,
         )
 
 
@@ -166,7 +173,8 @@ class DocumentDecoyFactory(DeceptionFactory):
     kind = DeceptionKind.DOCUMENT
     base_believability = 0.45
     sensor_fidelity = 0.85
-    """File auditing is the noisiest of the three, so fidelity is lowest."""
+    false_alert_rate = 0.20
+    """Backup and indexing jobs crawl file shares, so honeyfiles are noisiest."""
 
     def create_lure(self, host: Host, mimics: Host | None = None) -> Lure:
         subject = _slug(mimics.name) if mimics else _slug(host.name)
@@ -191,6 +199,7 @@ class DocumentDecoyFactory(DeceptionFactory):
             lure_id=lure.id,
             watches=f"open, copy or exfiltration of {lure.payload['path']}",
             fidelity=self.sensor_fidelity,
+            false_alert_rate=self.false_alert_rate,
         )
 
 

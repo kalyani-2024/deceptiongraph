@@ -1,0 +1,47 @@
+@startuml attack-graph
+title Reference network - attack graph and deception placement
+
+skinparam shadowing false
+skinparam defaultFontName sans-serif
+skinparam rectangle {
+  BackgroundColor<<jewel>> #FFE0E0
+  BackgroundColor<<decoy>> #E0F0E0
+  BackgroundColor<<entry>> #FFF4E0
+}
+
+rectangle "INTERNET" as net
+rectangle "web01\nWeb Server\ncrit 0.40" <<entry>> as web
+rectangle "api02\nAPI Server\ncrit 0.60" as api
+rectangle "bak01\nBackup Server\ncrit 0.70" as bak
+rectangle "db01\nProduction Database\ncrit 0.95 - CROWN JEWEL" <<jewel>> as db
+rectangle "adm01\nAdmin Workstation\ncrit 0.85" as adm
+
+net --> web : PERIMETER_ENTRY\np=0.52
+web --> api : CREDENTIAL_REUSE\np=0.84
+web --> bak : NETWORK_EXPLOIT\np=0.15
+api --> db : CREDENTIAL_REUSE\np=0.83
+bak --> db : NETWORK_EXPLOIT\np=0.11
+db --> adm : NETWORK_EXPLOIT\np=0.18
+adm --> db : CREDENTIAL_REUSE\np=0.70
+
+note top of net
+  Most dangerous path:
+  INTERNET -> web01 -> api02 -> db01
+  P(success) = 0.36, risk = 0.35
+end note
+
+rectangle "decoy\nfake_api_server_password.txt" <<decoy>> as d1
+rectangle "decoy\nfake_production_database_password.txt" <<decoy>> as d2
+rectangle "decoy\nadm01-replica" <<decoy>> as d3
+
+d1 .. web
+d2 .. api
+d3 .. db
+
+note bottom of d2
+  web01 and api02 are choke points:
+  100% of crown-jewel routes pass
+  through both
+end note
+
+@enduml

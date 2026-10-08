@@ -162,6 +162,68 @@ class TestReport:
         assert run(runner, "report", str(NETWORK), "--strategy", "vibes").exit_code == 1
 
 
+class TestSimulate:
+    def test_runs_an_adaptive_attack(self, runner):
+        result = run(runner, "simulate", str(NETWORK), "--runs", "4", "--seed", "3")
+        assert result.exit_code == 0
+        assert "Standing deception" in result.stdout
+        assert "Posture after the attack" in result.stdout
+
+    def test_static_mode_skips_the_loop(self, runner):
+        result = run(runner, "simulate", str(NETWORK), "--static", "--seed", "3")
+        assert result.exit_code == 0
+        assert "Posture after the attack" not in result.stdout
+
+    def test_json_output_is_parseable(self, runner):
+        result = run(
+            runner, "simulate", str(NETWORK), "--runs", "3", "--seed", "5", "--json"
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.stdout)
+        assert len(data["runs"]) == 3
+        assert data["status"] is not None
+
+    def test_the_seed_makes_it_repeatable(self, runner):
+        args = ("simulate", str(NETWORK), "--runs", "5", "--seed", "42", "--json")
+        first = json.loads(run(runner, *args).stdout)
+        second = json.loads(run(runner, *args).stdout)
+        assert [r["path"] for r in first["runs"]] == [r["path"] for r in second["runs"]]
+
+    def test_invalid_arguments_fail(self, runner):
+        assert run(runner, "simulate", str(NETWORK), "--runs", "0").exit_code == 1
+        assert run(runner, "simulate", str(NETWORK), "--strategy", "vibes").exit_code == 1
+
+
+class TestExperiment:
+    def test_reports_a_verdict(self, runner):
+        result = run(
+            runner, "experiment", str(NETWORK), "--budget", "2", "--trials", "20"
+        )
+        assert result.exit_code == 0
+        assert "Verdict" in result.stdout
+        assert "random" in result.stdout
+
+    def test_sweep_covers_several_budgets(self, runner):
+        result = run(runner, "experiment", str(NETWORK), "--trials", "5", "--sweep")
+        assert result.exit_code == 0
+        assert result.stdout.count("Verdict") >= 2
+
+    def test_writes_a_json_report(self, runner, tmp_path):
+        out = tmp_path / "nested" / "experiment.json"
+        result = run(
+            runner, "experiment", str(NETWORK), "--budget", "1", "--trials", "10",
+            "--out", str(out),
+        )
+        assert result.exit_code == 0
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["trials"] == 10
+        assert data["arms"]
+
+    def test_invalid_arguments_fail(self, runner):
+        assert run(runner, "experiment", str(NETWORK), "--trials", "0").exit_code == 1
+        assert run(runner, "experiment", str(NETWORK), "--budget", "0").exit_code == 1
+
+
 class TestExport:
     @pytest.mark.parametrize("kind", ["attack", "assets", "connectivity"])
     def test_writes_node_link_json(self, runner, tmp_path, kind):
