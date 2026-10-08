@@ -41,6 +41,18 @@ docker compose up -d
 curl localhost:8000/health         # says which backends are live
 ```
 
+## Demo
+
+To walk through the whole system in order — twin, attack paths, risk, decoy
+placement, the adaptation loop firing, and the experiment that measures it:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+.\scripts\demo.ps1                  # pauses between the 10 sections
+.\scripts\demo.ps1 -NoPause         # straight through, about 2 minutes
+.\scripts\demo.ps1 -Trials 500      # heavier experiment
+```
+
 ## Use
 
 ```bash
