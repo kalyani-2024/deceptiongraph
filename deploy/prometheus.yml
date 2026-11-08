@@ -1,0 +1,9 @@
+# Prometheus for `docker compose --profile observability up`.
+# Scrapes the API's /metrics (see src/deceptiongraph/runtime/telemetry.py).
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: deceptiongraph
+    static_configs:
+      - targets: ["api:8000"]

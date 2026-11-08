@@ -24,6 +24,7 @@ reflects both. Observers stay ignorant of each other; the sequence lives here.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 from ..analysis.risk import NetworkRisk, RiskEngine
@@ -35,6 +36,7 @@ from .events import Event, EventBus, EventType
 from .incidents import Incident, IncidentManager, Severity
 from .profiler import AttackerProfile, ThreatProfiler
 from .states import AttackerStage
+from .telemetry import Telemetry, get_telemetry
 
 
 @dataclass(slots=True)
@@ -119,8 +121,11 @@ class SecurityMediator:
         bus: EventBus | None = None,
         adapt_on_trigger: bool = True,
         max_total_decoys: int = 12,
+        telemetry: Telemetry | None = None,
     ) -> None:
         self.repository = repository
+        self.telemetry = telemetry or get_telemetry()
+        """Traces and metrics (no-op without the observability extra)."""
         self.bus = bus or EventBus()
         self.deception = deception or DeceptionEngine(repository)
         self.adapt_on_trigger = adapt_on_trigger
@@ -148,14 +153,36 @@ class SecurityMediator:
     # -- the one entry point -----------------------------------------------
 
     def handle(self, event: Event) -> Reaction:
-        """Publish an event and run the coordinated response."""
+        """Publish an event and run the coordinated response, traced and measured."""
+        started = time.perf_counter()
+        with self.telemetry.span(
+            "mediator.handle",
+            **{"event.type": event.type.value, "actor.id": event.actor_id,
+               "host.id": event.host_id, "event.triggered": event.is_deception_trigger},
+        ) as span:
+            reaction = self._handle(event)
+            if reaction.profile is not None:
+                span.set_attribute("attacker.stage", reaction.profile.stage.value)
+            span.set_attribute("stage.changed", reaction.stage_changed)
+        new_stage = self._stage_changes[-1][2].value if self._stage_changes else None
+        self.telemetry.record(
+            reaction, time.perf_counter() - started, live_decoys=len(self.live_assets),
+            open_incidents=len(self.incidents.open_incidents), new_stage=new_stage,
+        )
+        return reaction
+
+    def _handle(self, event: Event) -> Reaction:
         self._stage_changes.clear()
-        self.bus.publish(event)
-
         reaction = Reaction(event=event)
-        reaction.stage_changed = bool(self._stage_changes)
 
-        profile = self.profiler.profile(event.actor_id)
+        with self.telemetry.span("mediator.profile") as span:
+            self.bus.publish(event)
+            reaction.stage_changed = bool(self._stage_changes)
+            profile = self.profiler.profile(event.actor_id)
+            if profile is not None:
+                span.set_attribute("attacker.stage", profile.stage.value)
+                span.set_attribute("attacker.sophistication", profile.sophistication.value)
+                span.set_attribute("attacker.objective", profile.objective)
         if profile is None:
             reaction.notes.append("event carried no attacker signal")
             self.reactions.append(reaction)
@@ -164,27 +191,33 @@ class SecurityMediator:
 
         # Adaptation needs the fresh profile; the incident needs both.
         if self.adapt_on_trigger and self._should_adapt(event, reaction.stage_changed):
-            reaction.adaptation = self.adaptation.adapt(profile)
-            if reaction.adaptation.changed:
+            with self.telemetry.span("mediator.adapt") as span:
+                reaction.adaptation = self.adaptation.adapt(profile)
+                span.set_attribute("adaptation.changed", reaction.adaptation.changed)
+                if reaction.adaptation.changed:
+                    span.set_attribute("adaptation.summary", reaction.adaptation.describe())
+                    self.bus.publish(
+                        Event(
+                            type=EventType.DECEPTION_ADAPTED,
+                            actor_id=event.actor_id,
+                            detail=reaction.adaptation.describe(),
+                            metadata={"stage": profile.stage.value},
+                        )
+                    )
+
+        with self.telemetry.span("mediator.incident") as span:
+            reaction.incident = self.incidents.apply_profile(profile)
+            if reaction.incident is not None:
+                span.set_attribute("incident.id", reaction.incident.id)
+                span.set_attribute("incident.severity", reaction.incident.severity.value)
                 self.bus.publish(
                     Event(
-                        type=EventType.DECEPTION_ADAPTED,
+                        type=EventType.ALERT_RAISED,
                         actor_id=event.actor_id,
-                        detail=reaction.adaptation.describe(),
-                        metadata={"stage": profile.stage.value},
+                        host_id=event.host_id,
+                        detail=f"{reaction.incident.id} {reaction.incident.severity.value}",
                     )
                 )
-
-        reaction.incident = self.incidents.apply_profile(profile)
-        if reaction.incident is not None:
-            self.bus.publish(
-                Event(
-                    type=EventType.ALERT_RAISED,
-                    actor_id=event.actor_id,
-                    host_id=event.host_id,
-                    detail=f"{reaction.incident.id} {reaction.incident.severity.value}",
-                )
-            )
 
         self.reactions.append(reaction)
         return reaction
