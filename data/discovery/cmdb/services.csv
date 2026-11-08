@@ -1,0 +1,7 @@
+host_id,name,port,protocol,version,cves
+portal,https,443,tcp,Apache 2.4.49,CVE-2021-41773:7.5|CVE-2021-42013:9.8
+mail,smtp,25,tcp,Exim 4.92,CVE-2019-10149:9.8
+erp,http,8000,tcp,SAP NetWeaver,CVE-2020-6287:10.0
+hr-app,https,443,tcp,IIS 10,
+jump,rdp,3389,tcp,,CVE-2019-0708:9.8
+payroll-db,postgresql,5432,tcp,PostgreSQL 13,

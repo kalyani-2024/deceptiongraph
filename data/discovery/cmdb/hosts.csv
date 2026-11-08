@@ -1,0 +1,7 @@
+id,name,ip,os,exposure,criticality,crown_jewel,patch_level,tags
+portal,Customer portal,10.20.1.10,linux,INTERNET,0.4,,0.5,web|owner=ecommerce
+mail,Mail gateway,10.20.1.11,linux,INTERNET,0.5,,0.7,
+erp,ERP application,10.20.2.10,windows,INTERNAL,0.7,,0.4,owner=finance
+hr-app,HR system,10.20.2.11,windows,INTERNAL,0.6,,0.5,owner=hr
+jump,Admin jump host,10.20.2.50,windows,INTERNAL,0.6,,0.6,
+payroll-db,Payroll database,10.20.9.10,linux,RESTRICTED,0.95,yes,0.6,owner=finance|pii

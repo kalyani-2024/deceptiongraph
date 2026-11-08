@@ -1,0 +1,38 @@
+# What the scan in lab-scan.xml cannot see: zones, firewall flows, value,
+# and the accounts that live on each machine. Used by:
+#
+#   dgraph import nmap data/discovery/lab-scan.xml --zones data/discovery/lab-zones.yaml
+
+name: lab
+
+zones:
+  - cidr: 10.10.1.0/24
+    exposure: INTERNET      # internet-facing: web and VPN
+  - cidr: 10.10.2.0/24
+    exposure: INTERNAL
+  - cidr: 10.10.9.0/24
+    exposure: RESTRICTED    # domain controller and database
+
+# Firewall: who can reach whom across zones (0 = open, 1 = blocked).
+# Hosts inside one zone always reach each other.
+flows:
+  - {from: INTERNET, to: INTERNAL, filtered: 0.4}
+  - {from: INTERNAL, to: RESTRICTED, filtered: 0.5}
+
+crown_jewels: [dc01, db01]
+patch_level:
+  dc01: 0.3
+  www: 0.6
+
+# Accounts cached on machines, in the ordinary network-file format.
+credentials:
+  app01:
+    - {username: svc_db, kind: password, privilege: ADMIN, strength: 0.2, grants_access: [db01]}
+  ws-anna:
+    - {username: anna.admin, kind: ntlm-hash, privilege: ADMIN, strength: 0.3,
+       grants_access: [dc01, files01]}
+  files01:
+    - {username: backup, kind: ssh-key, privilege: ADMIN, strength: 0.4, grants_access: [db01]}
+
+users:
+  - {username: anna, role: it-admin, privilege: ADMIN, logs_into: [ws-anna, files01]}

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fictional lab network, in the format of an nmap service scan with the vulners script (XML output).
+     Hand-written sample for `dgraph import nmap`; not a scan of anything real. -->
+<nmaprun scanner="nmap" args="nmap -sV -O --script vulners -oX lab-scan.xml 10.10.0.0/16" version="7.94">
+  <host>
+    <status state="up"/>
+    <address addr="10.10.1.10" addrtype="ipv4"/>
+    <hostnames><hostname name="www.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="443">
+        <state state="open"/>
+        <service name="https" product="nginx" version="1.18.0"/>
+        <script id="vulners" output="">
+          <table key="cpe:/a:nginx:nginx:1.18.0">
+            <table><elem key="id">CVE-2021-23017</elem><elem key="cvss">7.7</elem><elem key="type">cve</elem><elem key="is_exploit">true</elem></table>
+            <table><elem key="id">CVE-2023-44487</elem><elem key="cvss">7.5</elem><elem key="type">cve</elem><elem key="is_exploit">false</elem></table>
+            <table><elem key="id">EDB-ID:50973</elem><elem key="cvss">7.7</elem><elem key="type">exploitdb</elem><elem key="is_exploit">true</elem></table>
+          </table>
+        </script>
+      </port>
+      <port protocol="tcp" portid="22"><state state="open"/><service name="ssh" product="OpenSSH" version="8.2p1"/></port>
+    </ports>
+    <os><osmatch name="Linux 5.4" accuracy="96"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.10.1.11" addrtype="ipv4"/>
+    <hostnames><hostname name="vpn.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="443">
+        <state state="open"/>
+        <service name="https" product="Fortinet SSL VPN"/>
+        <script id="vulners" output="">
+          <table key="cpe:/o:fortinet:fortios">
+            <table><elem key="id">CVE-2018-13379</elem><elem key="cvss">9.8</elem><elem key="type">cve</elem><elem key="is_exploit">true</elem></table>
+          </table>
+        </script>
+      </port>
+    </ports>
+    <os><osmatch name="FortiOS 6.0" accuracy="90"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.10.2.20" addrtype="ipv4"/>
+    <hostnames><hostname name="app01.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="8080">
+        <state state="open"/>
+        <service name="http" product="Apache Tomcat" version="9.0.30"/>
+        <script id="vulners" output="">
+          <table key="cpe:/a:apache:tomcat:9.0.30">
+            <table><elem key="id">CVE-2020-1938</elem><elem key="cvss">9.8</elem><elem key="type">cve</elem><elem key="is_exploit">true</elem></table>
+            <table><elem key="id">CVE-2020-9484</elem><elem key="cvss">7.0</elem><elem key="type">cve</elem><elem key="is_exploit">false</elem></table>
+          </table>
+        </script>
+      </port>
+      <port protocol="tcp" portid="22"><state state="open"/><service name="ssh" product="OpenSSH" version="8.2p1"/></port>
+    </ports>
+    <os><osmatch name="Linux 5.4" accuracy="95"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.10.2.21" addrtype="ipv4"/>
+    <hostnames><hostname name="files01.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="445"><state state="open"/><service name="microsoft-ds" product="Samba smbd" version="4.11.6"/></port>
+      <port protocol="tcp" portid="22"><state state="open"/><service name="ssh" product="OpenSSH" version="8.2p1"/></port>
+    </ports>
+    <os><osmatch name="Linux 5.4" accuracy="93"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.10.2.50" addrtype="ipv4"/>
+    <hostnames><hostname name="ws-anna.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="3389"><state state="open"/><service name="ms-wbt-server" product="Microsoft Terminal Services"/></port>
+      <port protocol="tcp" portid="445"><state state="open"/><service name="microsoft-ds"/></port>
+    </ports>
+    <os><osmatch name="Microsoft Windows 10" accuracy="94"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.10.9.5" addrtype="ipv4"/>
+    <hostnames><hostname name="dc01.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="88"><state state="open"/><service name="kerberos-sec" product="Microsoft Windows Kerberos"/></port>
+      <port protocol="tcp" portid="389"><state state="open"/><service name="ldap" product="Microsoft Windows Active Directory LDAP"/></port>
+      <port protocol="tcp" portid="445">
+        <state state="open"/>
+        <service name="microsoft-ds"/>
+        <script id="vulners" output="">
+          <table key="cpe:/o:microsoft:windows_server_2016">
+            <table><elem key="id">CVE-2020-1472</elem><elem key="cvss">10.0</elem><elem key="type">cve</elem><elem key="is_exploit">true</elem></table>
+          </table>
+        </script>
+      </port>
+    </ports>
+    <os><osmatch name="Microsoft Windows Server 2016" accuracy="97"/></os>
+  </host>
+  <host>
+    <status state="up"/>
+    <address addr="10.10.9.6" addrtype="ipv4"/>
+    <hostnames><hostname name="db01.lab.example" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="5432"><state state="open"/><service name="postgresql" product="PostgreSQL DB" version="12.4"/></port>
+      <port protocol="tcp" portid="22"><state state="open"/><service name="ssh" product="OpenSSH" version="8.2p1"/></port>
+    </ports>
+    <os><osmatch name="Linux 5.4" accuracy="95"/></os>
+  </host>
+  <host>
+    <status state="down"/>
+    <address addr="10.10.2.99" addrtype="ipv4"/>
+  </host>
+</nmaprun>

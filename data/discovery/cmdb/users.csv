@@ -1,0 +1,3 @@
+username,role,privilege,logs_into
+it.admin,it-admin,ADMIN,jump|erp
+payroll.clerk,finance,USER,hr-app

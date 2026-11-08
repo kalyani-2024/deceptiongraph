@@ -1,0 +1,8 @@
+from,to,ports,filtered
+portal,erp,8000,0.2
+mail,hr-app,443,0.5
+erp,payroll-db,5432,0.3
+hr-app,payroll-db,5432,0.3
+jump,erp,3389,0.0
+jump,hr-app,3389,0.0
+jump,payroll-db,5432,0.1
