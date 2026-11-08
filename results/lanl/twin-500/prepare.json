@@ -1,0 +1,45 @@
+{
+  "dataset": "LANL Comprehensive, Multi-Source Cyber-Security Events",
+  "citation": "A. D. Kent, 'Cybersecurity Data Sources for Dynamic Network Research', in Dynamic Networks in Cybersecurity, 2015.",
+  "url": "https://csr.lanl.gov/data/cyber1/",
+  "auth_file": "D:\\auth.txt.gz",
+  "redteam_file": "D:\\redteam.txt.gz",
+  "created_at": "2026-11-08T14:50:11.858493+00:00",
+  "features": [
+    "new_user_dst",
+    "new_user_src",
+    "new_pair",
+    "user_dst_count",
+    "user_src_count",
+    "dst_user_count",
+    "src_user_count",
+    "user_fail_count",
+    "auth_ntlm",
+    "logon_network",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "max_hosts": 500,
+  "crown_jewels": 3,
+  "include_redteam_hosts": false,
+  "seed": 7,
+  "summary": {
+    "out_dir": "D:\\lanl\\prepared500",
+    "lines_read": 525453189,
+    "lateral_logons": 52673028,
+    "window": [
+      0,
+      2678400
+    ],
+    "redteam_events": 749,
+    "redteam_matched": 701,
+    "positive_rows": 701,
+    "negative_rows": 526863,
+    "negative_rate": 0.01,
+    "twin_hosts": 500,
+    "twin_connections": 6425,
+    "redteam_targets": 301,
+    "redteam_targets_in_twin": 54,
+    "seconds": 5601.4
+  }
+}

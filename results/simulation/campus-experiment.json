@@ -1,0 +1,146 @@
+{
+  "network": "campus",
+  "budget": 3,
+  "trials": 1000,
+  "seed": 7,
+  "adversary": "naive",
+  "verdict": "adaptive, attack-path, risk beat random placement outside the 95% interval. Best was adaptive: detection 0.52 (+/-0.03) against random's 0.21, detected after 1.6 hops.",
+  "significant_winners": [
+    "risk",
+    "attack-path",
+    "adaptive"
+  ],
+  "arms": [
+    {
+      "label": "adaptive",
+      "budget": 3,
+      "hosts": [
+        "adm-01",
+        "app-01",
+        "app-02",
+        "app-03",
+        "build-01",
+        "cache-01",
+        "data-01",
+        "data-02",
+        "dc-01",
+        "file-01",
+        "finance-db",
+        "hr-db",
+        "jump-01",
+        "web-pub"
+      ],
+      "metrics": {
+        "label": "adaptive",
+        "trials": 1000,
+        "attempted_runs": 774,
+        "detections": 521,
+        "objective_reached": 4,
+        "detection_rate": 0.521,
+        "detection_rate_given_progress": 0.6731,
+        "detection_ci95": 0.031,
+        "mean_time_to_detection": 1.6104,
+        "mean_path_length": 1.183,
+        "decoys_used": 5,
+        "false_alerts_per_day": 0.2044,
+        "critical_asset_coverage": 0.628
+      }
+    },
+    {
+      "label": "attack-path",
+      "budget": 3,
+      "hosts": [
+        "app-01",
+        "data-01",
+        "web-pub"
+      ],
+      "metrics": {
+        "label": "attack-path",
+        "trials": 1000,
+        "attempted_runs": 774,
+        "detections": 374,
+        "objective_reached": 4,
+        "detection_rate": 0.374,
+        "detection_rate_given_progress": 0.4832,
+        "detection_ci95": 0.03,
+        "mean_time_to_detection": 1.4332,
+        "mean_path_length": 1.433,
+        "decoys_used": 3,
+        "false_alerts_per_day": 0.15,
+        "critical_asset_coverage": 0.5
+      }
+    },
+    {
+      "label": "risk",
+      "budget": 3,
+      "hosts": [
+        "app-01",
+        "app-03",
+        "data-01"
+      ],
+      "metrics": {
+        "label": "risk",
+        "trials": 1000,
+        "attempted_runs": 774,
+        "detections": 369,
+        "objective_reached": 2,
+        "detection_rate": 0.369,
+        "detection_rate_given_progress": 0.4767,
+        "detection_ci95": 0.0299,
+        "mean_time_to_detection": 2.271,
+        "mean_path_length": 1.512,
+        "decoys_used": 3,
+        "false_alerts_per_day": 0.15,
+        "critical_asset_coverage": 1.0
+      }
+    },
+    {
+      "label": "centrality",
+      "budget": 3,
+      "hosts": [
+        "adm-01",
+        "app-01",
+        "build-01"
+      ],
+      "metrics": {
+        "label": "centrality",
+        "trials": 1000,
+        "attempted_runs": 774,
+        "detections": 241,
+        "objective_reached": 45,
+        "detection_rate": 0.241,
+        "detection_rate_given_progress": 0.3114,
+        "detection_ci95": 0.0265,
+        "mean_time_to_detection": 2.2905,
+        "mean_path_length": 1.727,
+        "decoys_used": 3,
+        "false_alerts_per_day": 0.15,
+        "critical_asset_coverage": 0.5
+      }
+    },
+    {
+      "label": "random",
+      "budget": 3,
+      "hosts": [
+        "app-02",
+        "hr-db",
+        "mail-gw"
+      ],
+      "metrics": {
+        "label": "random",
+        "trials": 1000,
+        "attempted_runs": 774,
+        "detections": 215,
+        "objective_reached": 137,
+        "detection_rate": 0.215,
+        "detection_rate_given_progress": 0.2778,
+        "detection_ci95": 0.0255,
+        "mean_time_to_detection": 1.7302,
+        "mean_path_length": 1.775,
+        "decoys_used": 3,
+        "false_alerts_per_day": 0.22,
+        "critical_asset_coverage": 0.5
+      }
+    }
+  ]
+}

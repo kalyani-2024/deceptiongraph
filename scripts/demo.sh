@@ -4,6 +4,8 @@
 #   ./scripts/demo.sh               # pauses between sections (for presenting)
 #   ./scripts/demo.sh --no-pause    # runs straight through
 #   ./scripts/demo.sh --trials 500  # heavier experiment
+#   ./scripts/demo.sh --lanl /data/lanl/prepared500 --lanl-models /data/lanl/models500
+#                                   # include the real-data results
 #
 # Run it from the project root with the venv active.
 
@@ -11,10 +13,14 @@ set -e
 
 pause=1
 trials=200
+lanl=""
+lanl_models="models"
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-pause) pause=0 ;;
         --trials) trials="$2"; shift ;;
+        --lanl) lanl="$2"; shift ;;
+        --lanl-models) lanl_models="$2"; shift ;;
         *) echo "unknown option: $1" >&2; exit 1 ;;
     esac
     shift
@@ -95,7 +101,33 @@ dgraph experiment "$big" --budget 3 --trials "$trials" --seed 2024
 pause_here
 
 # 9 ---------------------------------------------------------------------------
-step "9. The agent tool surface" "The same system exposed as MCP-style tools."
+step "9. Against a smarter attacker" "Naive is the upper bound; cautious spots decoys; learning remembers them."
+dgraph adversary "$big" --budget 3 --trials 150 --seed 7
+pause_here
+
+# 10 --------------------------------------------------------------------------
+step "10. Does it depend on our guesses?" "Vary one judgement-call probability 0.5x-1.5x; does the winner change?"
+dgraph sensitivity "$big" --trials 100 --seed 7 --parameters session_hijack_base,patch_damping
+pause_here
+
+# 11 --------------------------------------------------------------------------
+step "11. From a real inventory" "An nmap scan plus a zone policy becomes the twin (fictional lab scan)."
+lab="${TMPDIR:-/tmp}/dgraph-lab.yaml"
+dgraph import nmap data/discovery/lab-scan.xml --zones data/discovery/lab-zones.yaml --out "$lab"
+dgraph paths "$lab" --target db01
+pause_here
+
+# 12 --------------------------------------------------------------------------
+if [ -n "$lanl" ] && [ -d "$lanl" ]; then
+    step "12. Against the real red team (LANL)" "Every strategy, scored on the held-out half of a real attack."
+    dgraph lanl evaluate "$lanl" --models "$lanl_models" --budgets 5,10
+    pause_here
+else
+    step "12. Real data (skipped)" "Pass --lanl <prepared dir> --lanl-models <models dir> to include LANL results."
+fi
+
+# 13 --------------------------------------------------------------------------
+step "13. The agent tool surface" "The same system exposed as MCP-style tools."
 python - <<'EOF'
 from deceptiongraph.agent import DeceptionGraphTools
 t = DeceptionGraphTools('data/networks/enterprise.yaml')
@@ -112,8 +144,8 @@ print(r['narrative'])
 EOF
 pause_here
 
-# 10 --------------------------------------------------------------------------
-step "10. The test suite" "354 tests, no database or container needed."
+# 14 --------------------------------------------------------------------------
+step "14. The test suite" "455 tests, no database or container needed (integration: scripts/integration.sh)."
 pytest
 pause_here
 

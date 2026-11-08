@@ -1,0 +1,39 @@
+{
+  "features": [
+    "criticality",
+    "crown_jewel",
+    "exposure_level",
+    "attack_surface",
+    "log_in_degree",
+    "log_out_degree",
+    "log_credentials_stored",
+    "log_credentials_granting",
+    "log_users",
+    "reach_probability",
+    "betweenness",
+    "attack_path_score",
+    "risk_score"
+  ],
+  "algorithm": "LogisticRegression (standardised, class-balanced)",
+  "sklearn_version": "1.9.1",
+  "network": "lanl",
+  "hosts": 150,
+  "positives": 15,
+  "coefficients": {
+    "log_credentials_stored": 0.9771,
+    "log_out_degree": 0.7391,
+    "betweenness": 0.7256,
+    "criticality": 0.6914,
+    "crown_jewel": 0.4735,
+    "exposure_level": 0.2986,
+    "log_credentials_granting": -0.2715,
+    "risk_score": -0.2693,
+    "attack_surface": -0.239,
+    "attack_path_score": -0.1834,
+    "log_users": 0.1756,
+    "log_in_degree": -0.1686,
+    "reach_probability": 0.0752
+  },
+  "prepared": "D:\\lanl\\prepared",
+  "split_time": 1072444
+}

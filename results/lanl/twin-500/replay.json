@@ -1,0 +1,33 @@
+{
+  "strategy": "ml",
+  "budget": 10,
+  "rows": 331208,
+  "redteam_rows": 351,
+  "ml_alerts": 420,
+  "ml_true_alerts": 261,
+  "ml_false_alerts": 159,
+  "ml_false_alerts_per_day": 855.417,
+  "decoy_triggers": 23,
+  "first_redteam_time": 1072444,
+  "first_ml_detection_time": 1072444,
+  "first_decoy_detection_time": 1073973,
+  "redteam_before_first_detection": 0,
+  "incidents": 30,
+  "adaptations": 25,
+  "live_decoys": 21,
+  "highlights": [
+    "t=1072444 first ML detection: ML detector: U1289 C17693->C2519 p=0.995",
+    "t=1073973 first decoy trigger:\nDECOY_AUTHENTICATED on C92: red team (U66) touched fake_c423_password.txt\nDECEPTION TRIGGERED\nAttacker stage: LATERAL_MOVEMENT\nSophistication: MEDIUM\nObjective: C529\nLikely next target: C423\nIncident INC-0001 [HIGH]\nAdapted: +3 decoys on C92, C467, C528; retired 1 burned",
+    "INC-0001 [CRITICAL] src:C17693: HIGH sophistication actor at COLLECTION, heading for C529",
+    "INC-0002 [MEDIUM] src:C5763: LOW sophistication actor at INITIAL_ACCESS, heading for C529",
+    "INC-0003 [CRITICAL] src:C19932: HIGH sophistication actor at COLLECTION, heading for C529",
+    "INC-0004 [MEDIUM] src:C21315: LOW sophistication actor at INITIAL_ACCESS, heading for C529",
+    "INC-0005 [HIGH] src:C22409: MEDIUM sophistication actor at LATERAL_MOVEMENT, heading for C529",
+    "INC-0006 [MEDIUM] src:C728: LOW sophistication actor at INITIAL_ACCESS",
+    "INC-0007 [MEDIUM] src:C1797: LOW sophistication actor at INITIAL_ACCESS, heading for C529",
+    "INC-0008 [MEDIUM] src:C15408: LOW sophistication actor at INITIAL_ACCESS",
+    "INC-0009 [MEDIUM] src:C3937: LOW sophistication actor at INITIAL_ACCESS, heading for C529",
+    "INC-0010 [MEDIUM] src:C2253: LOW sophistication actor at INITIAL_ACCESS, heading for C529"
+  ],
+  "hours_to_first_detection": 0.0
+}

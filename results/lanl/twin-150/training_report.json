@@ -1,0 +1,93 @@
+{
+  "split_time": 1072444,
+  "detector": {
+    "test": {
+      "average_precision": 0.066563,
+      "roc_auc": 0.99954,
+      "recall_at_fpr": {
+        "0.0001": 0.701632,
+        "0.001": 0.917379,
+        "0.01": 1.0
+      },
+      "positives": 351,
+      "negatives_sampled": 330857,
+      "negatives_weighted": 33085700.0,
+      "threshold": 0.932876,
+      "recall_at_threshold": 0.74359,
+      "precision_at_threshold": 0.01615,
+      "false_alerts_per_day": 855.41678
+    },
+    "info": {
+      "algorithm": "HistGradientBoostingClassifier",
+      "sklearn_version": "1.9.1",
+      "trained_rows": 196356,
+      "trained_positives": 350,
+      "train_time_range": [
+        21,
+        1072443
+      ],
+      "target_fpr": 0.0001,
+      "threshold_source": "weighted quantile of the final model's scores on training negatives",
+      "seed": 7,
+      "prepared": "D:\\lanl\\prepared",
+      "split_time": 1072444
+    },
+    "feature_importance": {
+      "auth_ntlm": 0.066436,
+      "src_user_count": 0.065924,
+      "dst_user_count": 0.056385,
+      "user_dst_count": 0.015202,
+      "hour_sin": 0.015102,
+      "user_fail_count": 0.000518,
+      "user_src_count": 0.00026,
+      "new_pair": 1.3e-05,
+      "new_user_dst": 0.0,
+      "new_user_src": 0.0,
+      "logon_network": 0.0,
+      "hour_cos": -0.011046
+    }
+  },
+  "rule_baseline": {
+    "test": {
+      "average_precision": 0.007945,
+      "roc_auc": 0.979889,
+      "recall_at_fpr": {
+        "0.0001": 0.217325,
+        "0.001": 0.44103,
+        "0.01": 0.513175
+      },
+      "positives": 351,
+      "negatives_sampled": 330857,
+      "negatives_weighted": 33085700.0,
+      "threshold": 1.0,
+      "recall_at_threshold": 0.236467,
+      "precision_at_threshold": 0.022536,
+      "false_alerts_per_day": 193.679271
+    },
+    "rule": "new_user_dst AND new_pair AND NTLM"
+  },
+  "target_ranker": {
+    "algorithm": "LogisticRegression (standardised, class-balanced)",
+    "sklearn_version": "1.9.1",
+    "network": "lanl",
+    "hosts": 150,
+    "positives": 15,
+    "coefficients": {
+      "log_credentials_stored": 0.9771,
+      "log_out_degree": 0.7391,
+      "betweenness": 0.7256,
+      "criticality": 0.6914,
+      "crown_jewel": 0.4735,
+      "exposure_level": 0.2986,
+      "log_credentials_granting": -0.2715,
+      "risk_score": -0.2693,
+      "attack_surface": -0.239,
+      "attack_path_score": -0.1834,
+      "log_users": 0.1756,
+      "log_in_degree": -0.1686,
+      "reach_probability": 0.0752
+    },
+    "prepared": "D:\\lanl\\prepared",
+    "split_time": 1072444
+  }
+}

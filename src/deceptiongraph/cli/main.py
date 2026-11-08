@@ -11,6 +11,13 @@
     dgraph report     data/networks/enterprise.yaml --out report.json
     dgraph export     data/networks/enterprise.yaml --out graph.json
     dgraph serve      --port 8000
+    dgraph lanl ...   real dataset + ML models (see `dgraph lanl --help`)
+    dgraph db ...     Neo4j / PostgreSQL / Redis (see `dgraph db --help`)
+    dgraph import ... build a network from an nmap scan or a CMDB export
+    dgraph generate   -n 200 -o net.yaml           larger synthetic networks
+    dgraph adversary  data/networks/campus.yaml    naive vs cautious vs learning attacker
+    dgraph sensitivity data/networks/campus.yaml   do results survive other guesses?
+    dgraph scale      --sizes 50,100,200           the experiment as networks grow
 """
 
 from __future__ import annotations
@@ -30,6 +37,10 @@ from ..facade import SecurityFacade
 from ..graph.loader import load_network
 from ..graph.model import INTERNET
 from ..graph.repository import InMemoryGraphRepository
+from . import research
+from .db import db_app
+from .importers import import_app
+from .lanl import lanl_app
 
 app = typer.Typer(
     name="dgraph",
@@ -38,6 +49,13 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console()
+app.add_typer(lanl_app, name="lanl")
+app.add_typer(db_app, name="db")
+app.add_typer(import_app, name="import")
+app.command()(research.generate)
+app.command()(research.adversary)
+app.command()(research.sensitivity)
+app.command()(research.scale)
 
 NetworkArg = typer.Argument(..., help="Path to a network definition YAML file.")
 
@@ -563,6 +581,8 @@ def experiment(
     trials: int = typer.Option(200, "--trials", "-t", help="Simulated attacks per arm."),
     seed: int = typer.Option(2024, "--seed", help="Base seed; arms are paired on it."),
     sweep: bool = typer.Option(False, "--sweep", help="Repeat across budgets 1, 2, 3 and 5."),
+    adversary: str = typer.Option("naive", "--adversary", "-a",
+                                  help="naive (upper bound) | cautious | learning"),
     out: Path = typer.Option(None, "--out", "-o", help="Write the full report as JSON."),
 ) -> None:
     """Measure the placement strategies against each other."""
@@ -573,14 +593,19 @@ def experiment(
         console.print("[bold red]error:[/] budget and trials must both be at least 1")
         raise typer.Exit(code=1)
 
-    runner = ExperimentRunner(repo, trials=trials, seed=seed)
+    try:
+        runner = ExperimentRunner(repo, trials=trials, seed=seed, adversary=adversary)
+    except ValueError as exc:
+        console.print(f"[bold red]error:[/] {exc}")
+        raise typer.Exit(code=1) from exc
     with console.status(f"Running {trials} simulated attacks per strategy..."):
         reports = runner.sweep(budgets=(1, 2, 3, 5)) if sweep else [runner.run(budget=budget)]
 
     for report in reports:
         rows = report.table()
         table = Table(
-            title=f"{report.network}: budget {report.budget}, {report.trials} trials",
+            title=f"{report.network}: budget {report.budget}, {report.trials} trials, "
+            f"{report.adversary} attacker",
             header_style="bold cyan",
         )
         table.add_column(rows[0][0], no_wrap=True)

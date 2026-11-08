@@ -1,0 +1,30 @@
+{
+  "threshold": 0.9328757421863856,
+  "features": [
+    "new_user_dst",
+    "new_user_src",
+    "new_pair",
+    "user_dst_count",
+    "user_src_count",
+    "dst_user_count",
+    "src_user_count",
+    "user_fail_count",
+    "auth_ntlm",
+    "logon_network",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "algorithm": "HistGradientBoostingClassifier",
+  "sklearn_version": "1.9.1",
+  "trained_rows": 196356,
+  "trained_positives": 350,
+  "train_time_range": [
+    21,
+    1072443
+  ],
+  "target_fpr": 0.0001,
+  "threshold_source": "weighted quantile of the final model's scores on training negatives",
+  "seed": 7,
+  "prepared": "D:\\lanl\\prepared500",
+  "split_time": 1072444
+}

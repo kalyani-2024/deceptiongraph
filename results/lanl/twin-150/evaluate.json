@@ -1,0 +1,244 @@
+[
+  {
+    "strategy": "random",
+    "budget": 3,
+    "hosts": [],
+    "target_hit_rate": 0.0235,
+    "event_coverage": 0.0188,
+    "events_before_detection": 27.4783,
+    "hours_to_detection": 23.0208,
+    "trials": 50,
+    "target_hit_rate_sd": 0.0291
+  },
+  {
+    "strategy": "risk",
+    "budget": 3,
+    "hosts": [
+      "C449",
+      "C586",
+      "C612"
+    ],
+    "target_hit_rate": 0.087,
+    "event_coverage": 0.0465,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "centrality",
+    "budget": 3,
+    "hosts": [
+      "C1065",
+      "C2106",
+      "C457"
+    ],
+    "target_hit_rate": 0.0435,
+    "event_coverage": 0.0698,
+    "events_before_detection": 22.0,
+    "hours_to_detection": 5.4172,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "attack-path",
+    "budget": 3,
+    "hosts": [
+      "C3309",
+      "C529",
+      "C612"
+    ],
+    "target_hit_rate": 0.087,
+    "event_coverage": 0.0349,
+    "events_before_detection": 57.0,
+    "hours_to_detection": 30.1975,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "ml",
+    "budget": 3,
+    "hosts": [
+      "C1065",
+      "C586",
+      "C612"
+    ],
+    "target_hit_rate": 0.087,
+    "event_coverage": 0.0465,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "random",
+    "budget": 5,
+    "hosts": [],
+    "target_hit_rate": 0.0426,
+    "event_coverage": 0.0405,
+    "events_before_detection": 23.5294,
+    "hours_to_detection": 21.8252,
+    "trials": 50,
+    "target_hit_rate_sd": 0.0403
+  },
+  {
+    "strategy": "risk",
+    "budget": 5,
+    "hosts": [
+      "C449",
+      "C529",
+      "C586",
+      "C612",
+      "C7595"
+    ],
+    "target_hit_rate": 0.1304,
+    "event_coverage": 0.0698,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "centrality",
+    "budget": 5,
+    "hosts": [
+      "C1065",
+      "C2106",
+      "C457",
+      "C467",
+      "C529"
+    ],
+    "target_hit_rate": 0.1304,
+    "event_coverage": 0.1279,
+    "events_before_detection": 22.0,
+    "hours_to_detection": 5.4172,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "attack-path",
+    "budget": 5,
+    "hosts": [
+      "C3309",
+      "C529",
+      "C586",
+      "C612"
+    ],
+    "target_hit_rate": 0.1304,
+    "event_coverage": 0.0698,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "ml",
+    "budget": 5,
+    "hosts": [
+      "C1065",
+      "C529",
+      "C586",
+      "C612",
+      "C92"
+    ],
+    "target_hit_rate": 0.1739,
+    "event_coverage": 0.1395,
+    "events_before_detection": 2.0,
+    "hours_to_detection": 0.2969,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "random",
+    "budget": 10,
+    "hosts": [],
+    "target_hit_rate": 0.0835,
+    "event_coverage": 0.0881,
+    "events_before_detection": 15.6047,
+    "hours_to_detection": 6.4244,
+    "trials": 50,
+    "target_hit_rate_sd": 0.0549
+  },
+  {
+    "strategy": "risk",
+    "budget": 10,
+    "hosts": [
+      "C2253",
+      "C23058",
+      "C3322",
+      "C365",
+      "C449",
+      "C529",
+      "C586",
+      "C612",
+      "C6897",
+      "C7595"
+    ],
+    "target_hit_rate": 0.1304,
+    "event_coverage": 0.0698,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "centrality",
+    "budget": 10,
+    "hosts": [
+      "C1065",
+      "C2106",
+      "C457",
+      "C467",
+      "C528",
+      "C529",
+      "C585",
+      "C586",
+      "C612",
+      "C625"
+    ],
+    "target_hit_rate": 0.3043,
+    "event_coverage": 0.2442,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "attack-path",
+    "budget": 10,
+    "hosts": [
+      "C3309",
+      "C529",
+      "C586",
+      "C612"
+    ],
+    "target_hit_rate": 0.1304,
+    "event_coverage": 0.0698,
+    "events_before_detection": 18.0,
+    "hours_to_detection": 4.6369,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  },
+  {
+    "strategy": "ml",
+    "budget": 10,
+    "hosts": [
+      "C1065",
+      "C3173",
+      "C423",
+      "C449",
+      "C464",
+      "C486",
+      "C529",
+      "C586",
+      "C612",
+      "C92"
+    ],
+    "target_hit_rate": 0.3043,
+    "event_coverage": 0.2791,
+    "events_before_detection": 2.0,
+    "hours_to_detection": 0.2969,
+    "trials": 1,
+    "target_hit_rate_sd": 0.0
+  }
+]
