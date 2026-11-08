@@ -1,0 +1,52 @@
+# Throwaway Neo4j, PostgreSQL and Redis for the integration tests.
+#
+#   scripts/integration.ps1        (Windows)   or   scripts/integration.sh
+#
+# Odd host ports so these never collide with the development stack in
+# docker-compose.yml, and tmpfs storage so every run starts empty.
+
+name: deceptiongraph-test
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "17687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/integration-test
+      NEO4J_server_memory_heap_max__size: 512M
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "integration-test", "RETURN 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_USER: deception
+      POSTGRES_PASSWORD: integration-test
+      POSTGRES_DB: deceptiongraph_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deception -d deceptiongraph_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "16379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30

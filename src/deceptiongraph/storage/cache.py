@@ -8,9 +8,8 @@ A null implementation is always available, so nothing has to branch on whether
 Redis is configured - `build_cache()` returns something that answers `get` and
 `set` either way.
 
-VERIFIED AGAINST THE NULL AND FAKE BACKENDS ONLY. `RedisCache` has not been
-run against a live Redis server; `tests/test_storage.py` drives it through a
-fake client that implements the three commands used here.
+Tested against a fake client in `tests/test_storage.py` and against a live
+Redis 7 container in `tests/integration/test_live_backends.py`.
 """
 
 from __future__ import annotations
@@ -46,6 +45,9 @@ class NullCache:
 
     def invalidate(self, key: str) -> None:
         return None
+
+    def ping(self) -> bool:
+        return False
 
 
 class RedisCache:
@@ -92,6 +94,9 @@ class RedisCache:
 
     def invalidate(self, key: str) -> None:
         self.client.delete(self._key(key))
+
+    def ping(self) -> bool:
+        return bool(self.client.ping())
 
 
 def build_cache(settings=None) -> Cache:

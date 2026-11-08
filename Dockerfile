@@ -11,7 +11,10 @@ WORKDIR /app
 # Dependencies first, so editing source does not invalidate the layer.
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN pip install --no-cache-dir ".[service]"
+# storage: the Neo4j, PostgreSQL and Redis drivers the API uses when configured.
+# ml: the `ml` placement strategy (needs a trained model mounted at /app/models).
+# observability: OpenTelemetry traces and the Prometheus /metrics endpoint.
+RUN pip install --no-cache-dir ".[service,storage,ml,observability]"
 
 COPY data ./data
 

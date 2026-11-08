@@ -4,10 +4,12 @@ All three are optional. With nothing configured the system runs entirely in
 memory, which is how the tests and the CLI run by default.
 """
 
+from .backends import Backends
 from .cache import Cache, NullCache, RedisCache, build_cache, model_fingerprint
 from .neo4j_repository import Neo4jGraphRepository, build_graph_repository
 
 __all__ = [
+    "Backends",
     "Cache",
     "Neo4jGraphRepository",
     "NullCache",

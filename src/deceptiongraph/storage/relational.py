@@ -10,11 +10,13 @@ SQLite works too, which is what the tests use: pass
 ``sqlite+pysqlite:///:memory:`` and the schema builds identically. Postgres
 specifics are avoided for exactly that reason.
 
-VERIFIED AGAINST SQLITE ONLY. The schema and every query here are exercised in
-`tests/test_storage.py` against an in-memory SQLite database. They have not
-been run against a real PostgreSQL server, because this project has none to run
-them against. The DDL uses nothing Postgres-specific, but that is an argument,
-not a test result.
+Tested twice: against in-memory SQLite in `tests/test_storage.py`, and against
+a live PostgreSQL 16 container in `tests/integration/test_live_backends.py`.
+
+Decoy and incident identifiers restart in every process (``INC-0001``,
+``decoy:credential:web01:1``), so rows are keyed by (session, identifier) rather
+than by the identifier alone - otherwise a second run would overwrite the
+first run's record instead of adding its own.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     func,
     select,
@@ -72,8 +75,10 @@ class DecoyRow(Base):
     """A deployed deception asset."""
 
     __tablename__ = "decoys"
+    __table_args__ = (UniqueConstraint("session_id", "asset_id", name="uq_decoy_session_asset"),)
 
-    id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    asset_id: Mapped[str] = mapped_column(String(200), index=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20))
     host_id: Mapped[str] = mapped_column(String(100), index=True)
@@ -114,8 +119,12 @@ class AlertRow(Base):
     """An incident as a human would see it."""
 
     __tablename__ = "alerts"
+    __table_args__ = (
+        UniqueConstraint("session_id", "incident_id", name="uq_alert_session_incident"),
+    )
 
-    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    incident_id: Mapped[str] = mapped_column(String(40), index=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), index=True)
     actor_id: Mapped[str] = mapped_column(String(100), index=True)
     severity: Mapped[str] = mapped_column(String(20), index=True)
@@ -192,6 +201,17 @@ class RelationalStore:
     def create_schema(self) -> None:
         Base.metadata.create_all(self.engine)
 
+    def ping(self) -> bool:
+        """True when the database answers."""
+        from sqlalchemy import text
+
+        with self.engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return True
+
+    def close(self) -> None:
+        self.engine.dispose()
+
     def drop_schema(self) -> None:
         Base.metadata.drop_all(self.engine)
 
@@ -218,14 +238,18 @@ class RelationalStore:
         written = 0
         with self.session() as db:
             for asset in assets:
-                existing = db.get(DecoyRow, asset.id)
+                existing = db.scalar(
+                    select(DecoyRow).where(
+                        DecoyRow.session_id == session_id, DecoyRow.asset_id == asset.id
+                    )
+                )
                 if existing is not None:
                     existing.state = asset.state.value
                     written += 1
                     continue
                 db.add(
                     DecoyRow(
-                        id=asset.id, session_id=session_id, kind=asset.kind.value,
+                        asset_id=asset.id, session_id=session_id, kind=asset.kind.value,
                         host_id=asset.host_id, name=asset.lure.name,
                         mimics=asset.protects, token=asset.marker.token,
                         believability=asset.lure.believability,
@@ -259,9 +283,13 @@ class RelationalStore:
         written = 0
         with self.session() as db:
             for incident in incidents:
-                row = db.get(AlertRow, incident.id)
+                row = db.scalar(
+                    select(AlertRow).where(
+                        AlertRow.session_id == session_id, AlertRow.incident_id == incident.id
+                    )
+                )
                 if row is None:
-                    row = AlertRow(id=incident.id, session_id=session_id,
+                    row = AlertRow(incident_id=incident.id, session_id=session_id,
                                    actor_id=incident.actor_id)
                     db.add(row)
                 row.severity = incident.severity.value
@@ -373,7 +401,7 @@ class RelationalStore:
 
 def _alert_dict(row: AlertRow) -> dict:
     return {
-        "id": row.id, "session_id": row.session_id, "actor_id": row.actor_id,
+        "id": row.incident_id, "session_id": row.session_id, "actor_id": row.actor_id,
         "severity": row.severity, "stage": row.stage,
         "sophistication": row.sophistication, "objective": row.objective,
         "summary": row.summary, "evidence_count": row.evidence_count,
@@ -394,7 +422,7 @@ def _event_dict(row: EventRow) -> dict:
 
 def _decoy_dict(row: DecoyRow) -> dict:
     return {
-        "id": row.id, "session_id": row.session_id, "kind": row.kind,
+        "id": row.asset_id, "session_id": row.session_id, "kind": row.kind,
         "host_id": row.host_id, "name": row.name, "mimics": row.mimics,
         "token": row.token, "believability": row.believability,
         "fidelity": row.fidelity, "detection_probability": row.detection_probability,

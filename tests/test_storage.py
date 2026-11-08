@@ -1,10 +1,10 @@
 """Storage tests.
 
 Scope, stated plainly: the relational store runs against in-memory SQLite, and
-the Neo4j repository and Redis cache run against fakes defined here. None of
-the three has been exercised against a real server. These tests prove the
-schema builds, the queries are well formed and the mappings round-trip - not
-that the adapters work against PostgreSQL, Neo4j or Redis.
+the Neo4j repository and Redis cache run against fakes defined here. These
+tests prove the schema builds, the statements are issued and the mappings
+round-trip. The same adapters are run against real Neo4j, PostgreSQL and Redis
+servers in ``tests/integration/test_live_backends.py``.
 """
 
 from __future__ import annotations
@@ -42,6 +42,11 @@ class FakeRedis:
         self.store.pop(key, None)
 
 
+class FakeResult(list):
+    def consume(self):
+        return None
+
+
 class FakeNeo4jSession:
     """Records every statement, so the Cypher can be asserted on."""
 
@@ -53,8 +58,11 @@ class FakeNeo4jSession:
         self.recorder.append((query.strip(), params))
         for marker, rows in self.responses.items():
             if marker in query:
-                return list(rows)
-        return []
+                return FakeResult(rows)
+        return FakeResult()
+
+    def execute_write(self, work):
+        return work(self)  # the session doubles as the transaction
 
     def __enter__(self):
         return self
@@ -317,12 +325,13 @@ class TestNeo4jRepository:
     def test_the_synthetic_internet_node_is_not_persisted(self, enterprise_model):
         driver = FakeNeo4jDriver()
         Neo4jGraphRepository(driver).save(enterprise_model)
-        connection_params = [
-            params for query, params in driver.statements if "CONNECTS_TO" in query
+        connection_rows = [
+            row
+            for query, params in driver.statements if "CONNECTS_TO" in query
+            for row in params.get("rows", [])
         ]
-        assert connection_params
-        assert all("INTERNET" not in (p.get("source"), p.get("target"))
-                   for p in connection_params)
+        assert connection_rows
+        assert all("INTERNET" not in (r["source"], r["target"]) for r in connection_rows)
 
     def test_queries_are_served_from_the_projection_after_save(self, enterprise_model):
         repo = Neo4jGraphRepository(FakeNeo4jDriver())
@@ -349,36 +358,57 @@ class TestNeo4jRepository:
             "services": [
                 {
                     "service": {"id": "web01:nginx:443", "name": "nginx", "port": 443,
-                                "protocol": "tcp", "version": "1.18"},
-                    "vuln": {"cve_id": "CVE-1", "cvss": 9.4, "exploitability": 0.7,
-                             "privilege_gained": "SERVICE", "description": "x"},
-                }
+                                "protocol": "tcp", "version": "1.18", "ord": 0},
+                    "vulns": [{"vuln": {"cve_id": "CVE-1", "cvss": 9.4,
+                                        "exploitability": 0.7,
+                                        "privilege_gained": "SERVICE", "description": "x"},
+                               "ord": 0}],
+                },
+                {   # a service with no vulnerability must survive the round trip
+                    "service": {"id": "web01:ssh:22", "name": "ssh", "port": 22, "ord": 1},
+                    "vulns": [],
+                },
             ],
             "credentials": [
                 {
                     "credential": {"id": "c1", "username": "svc", "kind": "password",
                                    "privilege": "USER", "strength": 0.3},
-                    "grants": "web01",
+                    "grants": [{"id": "web01", "ord": 0}],
                 }
             ],
         }
+        user_row = {"u": {"id": "user:alice", "username": "alice", "role": "admin",
+                          "privilege": "ADMIN"},
+                    "hosts": [{"id": "web01", "ord": 0}]}
         conn_row = {"source": "web01", "target": "web01", "protocol": "tcp",
                     "ports": [443], "filtered": 0.0}
         driver = FakeNeo4jDriver(
-            responses={"MATCH (h:Host)": [host_row], "CONNECTS_TO]->(b:Host)": [conn_row]}
+            responses={"MATCH (h:Host {network": [host_row],
+                       "MATCH (u:User {network": [user_row],
+                       "CONNECTS_TO]->(b:Host)": [conn_row]}
         )
-        model = Neo4jGraphRepository(driver).reload()
+        model = Neo4jGraphRepository(driver, network="acme").reload()
 
         host = model.hosts["web01"]
         assert host.name == "Web"
+        assert [s.name for s in host.services] == ["nginx", "ssh"]
         assert host.services[0].vulnerabilities[0].cve_id == "CVE-1"
         assert host.credentials[0].grants_access == ("web01",)
+        assert model.users["user:alice"].logs_into == ("web01",)
+
+    def test_networks_are_namespaced(self, enterprise_model):
+        driver = FakeNeo4jDriver()
+        repo = Neo4jGraphRepository(driver)
+        repo.save(enterprise_model)
+        assert repo.network == enterprise_model.name
+        assert all(params.get("network") == enterprise_model.name
+                   for _, params in driver.statements)
 
     def test_crown_jewel_query_is_parameterised(self):
         driver = FakeNeo4jDriver()
-        Neo4jGraphRepository(driver).paths_to_crown_jewel("web01", limit=5)
+        Neo4jGraphRepository(driver, network="acme").paths_to_crown_jewel("web01", limit=5)
         query, params = driver.statements[0]
-        assert params == {"start": "web01", "limit": 5}
+        assert params == {"network": "acme", "start": "web01", "limit": 5}
         assert "is_crown_jewel: true" in query
 
     def test_close_closes_the_driver(self):
