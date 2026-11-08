@@ -143,6 +143,13 @@ class AttackGraphEngine:
     def __init__(self, repository: GraphRepository) -> None:
         self.repository = repository
         self._graph: nx.DiGraph | None = None
+        self._routes: dict[str, dict[str, list[str]]] = {}
+        """Single-source shortest paths, cached per source.
+
+        Every query here asks for best routes from a handful of sources, so one
+        Dijkstra per source replaces one search per (source, target) pair. On
+        a few hundred hosts that is the difference between seconds and hours.
+        """
 
     @property
     def model(self) -> NetworkModel:
@@ -289,11 +296,21 @@ class AttackGraphEngine:
         graph = self.graph()
         if source not in graph or target not in graph or source == target:
             return None
-        try:
-            nodes = nx.shortest_path(graph, source, target, weight="weight")
-        except nx.NetworkXNoPath:
+        nodes = self.routes_from(source).get(target)
+        if nodes is None:
             return None
         return self._to_attack_path(graph, nodes)
+
+    def routes_from(self, source: str = INTERNET) -> dict[str, list[str]]:
+        """Most likely route from ``source`` to every node it can reach."""
+        cached = self._routes.get(source)
+        if cached is None:
+            graph = self.graph()
+            if source not in graph:
+                return {}
+            _, cached = nx.single_source_dijkstra(graph, source, weight="weight")
+            self._routes[source] = cached
+        return cached
 
     def most_dangerous_path(self, source: str = INTERNET) -> AttackPath | None:
         """Highest-risk route to any host, crown jewels weighted by criticality.
