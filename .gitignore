@@ -23,6 +23,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Real data and trained models: large, licensed for download, regenerable
+data/lanl/
+data/raw/
+models/
+
 # Local artefacts
 *.log
 out/

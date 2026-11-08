@@ -261,12 +261,30 @@ STRATEGIES: dict[str, type[DeceptionPlacementStrategy]] = {
 }
 
 
+OPTIONAL_STRATEGIES = ("ml",)
+"""Strategies that need something beyond the core install.
+
+``ml`` needs scikit-learn and a trained model file (``dgraph lanl train``), so it
+is not in :data:`STRATEGIES` - comparisons that run "every strategy" must keep
+working on a machine that has neither.
+"""
+
+
 def strategy_for(name: str) -> DeceptionPlacementStrategy:
     """Look up a strategy by name, as the CLI and experiments do."""
+    key = name.lower()
+    if key == "ml":
+        try:
+            from ..ml.targets import MLPlacement
+        except ImportError as exc:
+            raise ValueError(
+                "the 'ml' strategy needs the ml extra: pip install -e \".[ml]\""
+            ) from exc
+        return MLPlacement()
     try:
-        return STRATEGIES[name.lower()]()
+        return STRATEGIES[key]()
     except KeyError as exc:
-        allowed = ", ".join(sorted(STRATEGIES))
+        allowed = ", ".join(sorted(STRATEGIES) + list(OPTIONAL_STRATEGIES))
         raise ValueError(f"unknown placement strategy {name!r} (expected one of: {allowed})") from exc
 
 
