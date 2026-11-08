@@ -15,11 +15,11 @@ experiments. One run is a Monte Carlo walk of the attack graph:
 4. Stop on reaching the objective, on detection, on exhausting the retries, or
    at the step limit.
 
-A deliberate simplification: the simulated attacker does not know which assets
-are decoys, and does not get warier after tripping one. That makes these
-numbers an *upper* bound on how well deception performs. A real adversary who
-spots one honeyfile starts treating everything with suspicion, and modelling
-that honestly needs adversary data this project does not have.
+How the attacker treats the decoys is a pluggable :class:`Adversary`
+(:mod:`deceptiongraph.runtime.adversary`). The default, ``NaiveAdversary``,
+never notices a decoy and never learns - an *upper* bound on how well deception
+performs. ``CautiousAdversary`` spots unconvincing lures and gets warier, and
+with ``learns=True`` carries that wariness from one campaign to the next.
 """
 
 from __future__ import annotations
@@ -28,9 +28,9 @@ import random
 from dataclasses import dataclass, field
 
 from ..deception.assets import DeceptionAsset, DeceptionState
-from ..deception.coverage import detection_by_host
 from ..graph.model import INTERNET
 from ..graph.repository import GraphRepository
+from .adversary import Adversary, NaiveAdversary
 from .events import Event, EventType
 from .mediator import Reaction, SecurityMediator
 
@@ -69,6 +69,8 @@ class SimulationResult:
     failed_hops: int = 0
     """Exploits that bounced. High values mean the network resisted, not that
     the deception worked."""
+    decoys_spotted: int = 0
+    """Decoys the attacker recognised and stepped around (never for the naive one)."""
 
     @property
     def hops(self) -> int:
@@ -95,6 +97,7 @@ class SimulationResult:
             "detected_at": self.detected_at,
             "hops_before_detection": self.hops_before_detection,
             "failed_hops": self.failed_hops,
+            "decoys_spotted": self.decoys_spotted,
         }
 
 
@@ -110,8 +113,11 @@ class AttackSimulator:
         max_steps: int = 10,
         source: str = INTERNET,
         max_failures: int = 3,
+        adversary: Adversary | None = None,
     ) -> None:
         self.repository = repository
+        self.adversary = adversary or NaiveAdversary()
+        """How the attacker reacts to decoys. Shared across runs if it learns."""
         self.mediator = mediator
         self._static_assets = list(assets or [])
         self.rng = random.Random(seed)
@@ -134,6 +140,15 @@ class AttackSimulator:
 
     def run(self, actor_id: str = "actor-1") -> SimulationResult:
         """One run. Feeds the mediator as it goes, when there is one."""
+        self.adversary.begin_campaign()
+        self._caught_by: DeceptionAsset | None = None
+        self._spotted = 0
+        result = self._campaign(actor_id)
+        result.decoys_spotted = self._spotted
+        self.adversary.end_campaign(self._caught_by)
+        return result
+
+    def _campaign(self, actor_id: str) -> SimulationResult:
         current = self.source
         path = [current]
         steps: list[SimulationStep] = []
@@ -252,15 +267,12 @@ class AttackSimulator:
         if not on_host:
             return None, None
 
-        combined = detection_by_host(on_host).get(host_id, 0.0)
-        if self.rng.random() >= combined:
+        encounter = self.adversary.encounter(on_host, host_id, self.rng)
+        self._spotted += len(encounter.spotted)
+        decoy = encounter.fired
+        if decoy is None:
             return None, None
-
-        # Which decoy fired: weighted by each one's own detection probability.
-        weights = [a.detection_probability for a in on_host]
-        if sum(weights) <= 0.0:
-            return None, None
-        decoy = self.rng.choices(on_host, weights=weights, k=1)[0]
+        self._caught_by = decoy
 
         from ..deception.assets import DeceptionKind
 

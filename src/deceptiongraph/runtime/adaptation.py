@@ -130,8 +130,11 @@ class AdaptationEngine:
         # actor does not - so re-seed it with a different family rather than
         # abandoning the position.
         reseeded = self._reseed(burned, profile)
+        # Re-seeding used some of the headroom the budget was computed from;
+        # without this the live set could end above the ceiling.
+        budget = min(budget, self.max_total - len(self.active))
 
-        targets = self._targets(profile, budget)
+        targets = self._targets(profile, budget) if budget > 0 else ()
         if not targets:
             return self._record(
                 Adaptation(

@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 
 from .enums import Exposure, NodeType, Privilege
 
+PATCH_DAMPING = 0.7
+"""How much a fully patched host (patch_level 1) cuts its exploitability: by 70%.
+A judgement call; the sensitivity analysis varies it."""
+
 
 @dataclass(frozen=True, slots=True)
 class Vulnerability:
@@ -151,7 +155,7 @@ class Host:
         Noisy-OR across services, damped by how well the host is patched.
         """
         raw = _noisy_or(s.exploit_probability for s in self.services)
-        return raw * (1.0 - 0.7 * self.patch_level)
+        return raw * (1.0 - PATCH_DAMPING * self.patch_level)
 
     @property
     def max_privilege_gained(self) -> Privilege:

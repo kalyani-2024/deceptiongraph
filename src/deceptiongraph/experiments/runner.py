@@ -17,6 +17,12 @@ shown to work, however sophisticated its reasoning.
 *An adaptive arm.* `adaptive` starts from the same attack-path deployment but
 runs the full mediator loop, moving decoys as the profile develops. It is the
 only arm that answers whether adaptation earns its complexity.
+
+*A choice of attacker.* ``adversary="naive"`` (the default) never notices a
+decoy, so its detection rates are an upper bound. ``"cautious"`` spots
+unconvincing lures; ``"learning"`` also carries its wariness from one trial to
+the next, so the trials of an arm become one adversary's repeated campaigns.
+Each arm gets its own fresh adversary, so no arm inherits another's lessons.
 """
 
 from __future__ import annotations
@@ -30,7 +36,9 @@ from ..deception.placement import RandomPlacement, strategy_for
 from ..graph.loader import load_network
 from ..graph.model import NetworkModel
 from ..graph.repository import GraphRepository, InMemoryGraphRepository
+from ..runtime.adversary import adversary_for
 from ..runtime.mediator import SecurityMediator
+from ..runtime.telemetry import Telemetry
 from ..runtime.simulator import AttackSimulator, SimulationResult
 from .metrics import Metrics, summarise
 
@@ -68,6 +76,7 @@ class ExperimentReport:
     trials: int
     seed: int
     arms: tuple[ArmResult, ...]
+    adversary: str = "naive"
 
     @property
     def ranked(self) -> tuple[ArmResult, ...]:
@@ -135,6 +144,7 @@ class ExperimentReport:
             "budget": self.budget,
             "trials": self.trials,
             "seed": self.seed,
+            "adversary": self.adversary,
             "verdict": self.verdict(),
             "significant_winners": [a.label for a in self.significant_winners()],
             "arms": [a.as_dict(include_runs) for a in self.ranked],
@@ -170,11 +180,14 @@ class ExperimentRunner:
         trials: int = 200,
         seed: int = 2024,
         max_steps: int = 12,
+        adversary: str = "naive",
     ) -> None:
         self.network = network
         self.trials = trials
         self.seed = seed
         self.max_steps = max_steps
+        adversary_for(adversary)  # fail fast on an unknown name
+        self.adversary = adversary
 
     def run(
         self,
@@ -195,7 +208,7 @@ class ExperimentRunner:
         name = _network_name(self.network)
         return ExperimentReport(
             network=name, budget=budget, trials=self.trials, seed=self.seed,
-            arms=tuple(results),
+            arms=tuple(results), adversary=self.adversary,
         )
 
     def sweep(
@@ -233,6 +246,7 @@ class ExperimentRunner:
         )
         deployment = engine.deploy(budget=budget, strategy=strategy)
 
+        adversary = adversary_for(self.adversary)
         runs = []
         for index in range(self.trials):
             simulator = AttackSimulator(
@@ -240,6 +254,7 @@ class ExperimentRunner:
                 assets=list(deployment.assets),
                 seed=self.seed + index,
                 max_steps=self.max_steps,
+                adversary=adversary,
             )
             runs.append(simulator.run(actor_id=f"{arm}-actor-{index + 1}"))
 
@@ -260,6 +275,7 @@ class ExperimentRunner:
         false_rates: list[float] = []
         coverages: list[float] = []
         hosts: set[str] = set()
+        adversary = adversary_for(self.adversary)
 
         for index in range(self.trials):
             repository = self._fresh_repository()
@@ -267,11 +283,12 @@ class ExperimentRunner:
             deployment = engine.deploy(budget=budget, strategy=strategy_for("attack-path"))
             mediator = SecurityMediator(
                 repository, deception=engine, deployment=deployment,
-                max_total_decoys=budget * 3,
+                max_total_decoys=budget * 3, telemetry=Telemetry.disabled(),
             )
             simulator = AttackSimulator(
                 repository, mediator=mediator,
                 seed=self.seed + index, max_steps=self.max_steps,
+                adversary=adversary,
             )
             runs.append(simulator.run(actor_id=f"{arm}-actor-{index + 1}"))
 

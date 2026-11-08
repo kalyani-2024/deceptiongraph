@@ -373,6 +373,24 @@ class TestAdaptation:
             )
         assert len(mediator.live_assets) <= 4
 
+    def test_the_ceiling_holds_while_burned_decoys_are_reseeded(self):
+        """Re-seeding burned decoys used to be counted outside the budget."""
+        from conftest import DATA_DIR
+        from deceptiongraph.graph.loader import load_network
+        from deceptiongraph.graph.repository import InMemoryGraphRepository
+
+        repo = InMemoryGraphRepository(load_network(DATA_DIR / "campus.yaml"))
+        engine = DeceptionEngine(repo)
+        mediator = SecurityMediator(repo, deception=engine,
+                                    deployment=engine.deploy(budget=5), max_total_decoys=6)
+        for index in range(30):
+            live = mediator.live_assets
+            decoy = live[index % len(live)]
+            mediator.handle(Event(type=EventType.DECOY_AUTHENTICATED, host_id=decoy.host_id,
+                                  actor_id=f"actor-{index % 4}", asset_id=decoy.id,
+                                  token=decoy.marker.token))
+            assert len(mediator.live_assets) <= 6, f"over the ceiling after event {index}"
+
     def test_coverage_is_reported_for_the_live_set(self, mediated):
         coverage = mediated.adaptation.coverage()
         assert coverage.strategy == "adaptive"
